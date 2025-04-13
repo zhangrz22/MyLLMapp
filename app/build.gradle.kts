@@ -1,3 +1,6 @@
+import com.android.build.api.dsl.Packaging
+import java.util.Properties
+import java.io.FileInputStream
 plugins {
     // 使用 ID 直接应用插件，替代 alias(libs.plugins.androidApplication)
     id("com.android.application")
@@ -24,27 +27,54 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // 对于生产环境，可以使用空字符串
+            buildConfigField("String", "DASHSCOPE_API_KEY", "\"\"")
+        }
+        debug {
+            // 从local.properties读取API Key
+            val properties = Properties()
+            val localPropertiesFile = project.rootProject.file("local.properties")
+            if (localPropertiesFile.exists()) {
+                properties.load(FileInputStream(localPropertiesFile))
+            }
+            val apiKey = properties.getProperty("dashscope.api.key") ?: ""
+            buildConfigField("String", "DASHSCOPE_API_KEY", "\"$apiKey\"")
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
-    // 如果你使用 ViewBinding (推荐)
+
+    packaging {
+        resources {
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "/META-INF/LICENSE"
+            excludes += "/META-INF/LICENSE.txt"
+            excludes += "/META-INF/license.txt"
+            excludes += "/META-INF/NOTICE"
+            excludes += "/META-INF/NOTICE.txt"
+            excludes += "/META-INF/notice.txt"
+            excludes += "/META-INF/ASL2.0"
+            excludes += "/META-INF/*.kotlin_module"
+        }
+    }
+
+    // 确保生成BuildConfig
     buildFeatures {
+        buildConfig = true
         viewBinding = true
     }
 }
 
 dependencies {
     // 核心库
-    // implementation(libs.androidx.core.ktx) // 如果你混用 Kotlin 可以保留, 但需要确保 version catalog 或直接版本号可用
-    implementation("androidx.core:core-ktx:1.12.0") // 直接指定版本示例
-    implementation("androidx.appcompat:appcompat:1.6.1") // 直接指定版本示例
-    implementation("com.google.android.material:material:1.11.0") // 直接指定版本示例
-    implementation("androidx.activity:activity:1.8.2") // 直接指定版本示例
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4") // 直接指定版本示例
-
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.activity:activity:1.8.2")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
     // RecyclerView for lists
     implementation("androidx.recyclerview:recyclerview:1.3.2") // 使用最新稳定版
@@ -53,21 +83,24 @@ dependencies {
     val room_version = "2.6.1" // 使用最新稳定版
     implementation("androidx.room:room-runtime:$room_version")
     annotationProcessor("androidx.room:room-compiler:$room_version")
-    // 可选 - RxJava3 支持 Room
     implementation("androidx.room:room-rxjava3:$room_version")
-    // 可选 - Guava 支持 Room, 包括 Optional 和 ListenableFuture
     implementation("androidx.room:room-guava:$room_version")
-    // 可选 - 测试帮助库
     testImplementation("androidx.room:room-testing:$room_version")
-    // 可选 - Paging 3 Integration
     implementation("androidx.room:room-paging:$room_version")
 
+    // Retrofit & OkHttp for network requests
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+
+    // Gson for JSON parsing
+    implementation("com.google.code.gson:gson:2.10.1")
 
     // 测试库
-    // testImplementation(libs.junit) // 需要确保 version catalog 或直接版本号可用
-    testImplementation("junit:junit:4.13.2") // 直接指定版本示例
-    // androidTestImplementation(libs.androidx.junit) // 需要确保 version catalog 或直接版本号可用
-    androidTestImplementation("androidx.test.ext:junit:1.1.5") // 直接指定版本示例
-    // androidTestImplementation(libs.androidx.espresso.core) // 需要确保 version catalog 或直接版本号可用
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1") // 直接指定版本示例
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+
+    implementation("com.openai:openai-java:0.31.0")
 }

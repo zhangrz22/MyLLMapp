@@ -40,4 +40,13 @@ public interface MessageDao {
 
     // Add other methods like update or delete if needed
     // 如果需要，添加其他方法，如更新或删除
+    // 在MessageDao接口中添加
+    /**
+     * 获取某个对话的最近N条消息
+     * @param conversationId 对话ID
+     * @param limit 消息数量限制
+     * @return 消息列表，按时间升序排列
+     */
+    @Query("SELECT * FROM messages WHERE conversation_id = :conversationId ORDER BY timestamp ASC LIMIT :limit")
+    List<Message> getRecentMessagesForConversation(long conversationId, int limit);
 }

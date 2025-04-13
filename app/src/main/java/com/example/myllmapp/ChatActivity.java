@@ -1,6 +1,5 @@
 package com.example.myllmapp;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log; // For logging / 用于日志记录
@@ -22,6 +21,19 @@ import com.example.myllmapp.model.Sender;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong; // For handling conversation ID across threads
 
+// 导入必要的类
+import com.example.myllmapp.api.ApiKeyManager;
+import com.example.myllmapp.api.DashScopeClient;
+import com.openai.client.OpenAIClient;
+import com.openai.models.ChatCompletion;
+import com.openai.models.ChatCompletionCreateParams;
+import com.openai.models.ChatCompletionAssistantMessageParam;
+
+import java.util.ArrayList;
+import java.util.List;
+
+
+
 /**
  * ChatActivity handles the conversation interaction between the user and the LLM.
  * ChatActivity 处理用户与大模型之间的对话交互。
@@ -35,6 +47,13 @@ public class ChatActivity extends AppCompatActivity {
     private ConversationDao conversationDao;
     private MessageAdapter adapter;
     private LinearLayoutManager layoutManager;
+
+    // 在ChatActivity.java中添加成员变量
+    private static final String DEFAULT_MODEL = "qwen-plus";
+    private static final double DEFAULT_TEMPERATURE = 0.7;
+    private static final int DEFAULT_MAX_TOKENS = 500;
+    private static final int MAX_HISTORY_MESSAGES = 200; // 最多保留多少条历史消息
+    private boolean isLoadingResponse = false; // 标记是否正在加载LLM响应
 
     private AtomicLong currentConversationId = new AtomicLong(-1L); // Use AtomicLong for thread safety / 使用 AtomicLong 保证线程安全, -1 indicates new conversation / -1 表示新对话
 
@@ -167,40 +186,143 @@ public class ChatActivity extends AppCompatActivity {
         });
     }
 
+
     /**
-     * Simulates getting a response from the LLM and saves it to the database.
-     * **Placeholder:** Replace this with actual API calls.
-     * 模拟从 LLM 获取响应并将其保存到数据库。
-     * **占位符：** 请将此替换为实际的 API 调用。
-     *
-     * @param inputText The user's input text. / 用户的输入文本。
-     * @param conversationId The ID of the current conversation. / 当前对话的 ID。
+     * 使用DashScope API获取LLM响应
+     * @param inputText 用户的输入文本
+     * @param conversationId 当前对话的ID
      */
     private void getLlmResponse(String inputText, long conversationId) {
-        // Simulate network delay or processing time / 模拟网络延迟或处理时间
-        try {
-            Thread.sleep(500); // Simulate 0.5 second delay / 模拟 0.5 秒延迟
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        // 标记正在加载
+        isLoadingResponse = true;
 
-        // **Placeholder Response Logic** / **占位符响应逻辑**
-        String llmResponseText = "收到: \"" + inputText + "\" (这是模拟回复)";
+        // 在后台线程中进行API调用
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            try {
+                // 1. 获取API Key
+                String apiKey = BuildConfig.DASHSCOPE_API_KEY;
 
-        // Create and insert the LLM's message (still on background thread)
-        // 创建并插入 LLM 的消息（仍在后台线程）
-        Message llmMessage = new Message(conversationId, llmResponseText, Sender.LLM, System.currentTimeMillis());
-        messageDao.insertMessage(llmMessage);
-        Log.d(TAG, "Inserted LLM response: " + llmResponseText + " for convo ID: " + conversationId);
+                if (apiKey.isEmpty()) {
+                    apiKey = ApiKeyManager.getDashScopeApiKey(ChatActivity.this);
+                    if (apiKey.isEmpty()) {
+                        runOnUiThread(() -> {
+                            Toast.makeText(ChatActivity.this,
+                                    "请设置DashScope API Key", Toast.LENGTH_LONG).show();
+                            isLoadingResponse = false;
+                        });
+                        return;
+                    }
+                }
 
-        // Note: The LiveData observer in observeMessages will automatically pick up this new message
-        // and update the UI on the main thread.
-        // 注意：observeMessages 中的 LiveData 观察者将自动获取此新消息并在主线程上更新 UI。
-        // We might still need to explicitly scroll down after the LLM response appears.
-        // LLM 响应出现后，我们可能仍需要显式向下滚动。
-        // runOnUiThread(this::scrollToBottom); // Call scroll after LLM message is likely displayed
+                // 2. 获取对话历史
+                List<Message> historyMessages = messageDao.getRecentMessagesForConversation(
+                        conversationId, MAX_HISTORY_MESSAGES);
+
+                // 3. 创建DashScope客户端
+                DashScopeClient dashScopeClient = DashScopeClient.getInstance(apiKey);
+                OpenAIClient client = dashScopeClient.getClient();
+
+                // 4. 构建参数
+                ChatCompletionCreateParams.Builder paramsBuilder = ChatCompletionCreateParams.builder()
+                        .model(dashScopeClient.getDefaultModel());
+
+                // 4.1 添加系统消息
+                paramsBuilder.addSystemMessage("你是一个友好、有帮助的助手，能以用户使用的语言回答用户的问题。");
+
+                // 4.2 添加历史消息
+                for (Message msg : historyMessages) {
+                    if (msg.sender == Sender.USER) {
+                        paramsBuilder.addUserMessage(msg.text);
+                    } else {
+                        paramsBuilder.addMessage(
+                                ChatCompletionAssistantMessageParam.builder()
+                                .content(msg.text)
+                                .build());
+                    }
+                }
+
+                // 4.3 确保最新消息在列表中
+                if (historyMessages.isEmpty() ||
+                        historyMessages.get(historyMessages.size() - 1).sender != Sender.USER) {
+                    paramsBuilder.addUserMessage(inputText);
+                }
+
+                final ChatCompletionCreateParams params = paramsBuilder.build();
+
+                // 5. 创建一个新线程来执行API调用，因为这可能会阻塞
+                new Thread(() -> {
+                    try {
+                        // 执行API调用
+                        ChatCompletion chatCompletion = client.chat().completions().create(params);
+
+                        // 处理响应
+                        AppDatabase.databaseWriteExecutor.execute(() -> {
+                            isLoadingResponse = false;
+
+                            try {
+                                // 获取回复内容
+                                String llmResponseText = chatCompletion.choices().get(0).message().content()
+                                        .orElse("无返回内容");
+
+                                // 创建并插入LLM消息到数据库
+                                Message llmMessage = new Message(
+                                        conversationId,
+                                        llmResponseText,
+                                        Sender.LLM,
+                                        System.currentTimeMillis()
+                                );
+                                messageDao.insertMessage(llmMessage);
+
+                                Log.d(TAG, "Inserted LLM response: " + llmResponseText);
+
+                                // 更新UI
+                                runOnUiThread(this::scrollToBottom);
+
+                            } catch (Exception e) {
+                                handleApiError("解析响应失败: " + e.getMessage());
+                            }
+                        });
+                    } catch (Exception e) {
+                        // 处理API调用异常
+                        AppDatabase.databaseWriteExecutor.execute(() -> {
+                            isLoadingResponse = false;
+                            handleApiError("API调用失败: " + e.getMessage());
+                        });
+                    }
+                }).start();
+
+            } catch (Exception e) {
+                // 处理一般异常
+                Log.e(TAG, "Error in getLlmResponse", e);
+                isLoadingResponse = false;
+                handleApiError("发生错误: " + e.getMessage());
+            }
+        });
     }
 
+    /**
+     * 处理API错误
+     * @param errorMessage 错误消息
+     */
+    private void handleApiError(String errorMessage) {
+        Log.e(TAG, errorMessage);
+
+        runOnUiThread(() -> {
+            Toast.makeText(ChatActivity.this,
+                    "获取LLM响应失败", Toast.LENGTH_SHORT).show();
+
+            // 可选：插入一条错误消息到对话中
+            AppDatabase.databaseWriteExecutor.execute(() -> {
+                Message errorMsg = new Message(
+                        currentConversationId.get(),
+                        "无法获取回复，请稍后再试。",
+                        Sender.LLM,
+                        System.currentTimeMillis()
+                );
+                messageDao.insertMessage(errorMsg);
+            });
+        });
+    }
     /**
      * Scrolls the RecyclerView to the last item.
      * 将 RecyclerView 滚动到最后一项。
@@ -214,4 +336,6 @@ public class ChatActivity extends AppCompatActivity {
             );
         }
     }
+
+
 }
