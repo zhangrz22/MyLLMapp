@@ -1,16 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
     android:padding="16dp"
-    android:background="?attr/selectableItemBackground"> <TextView
+    android:background="?android:attr/selectableItemBackground"> <TextView
     android:id="@+id/textViewConversationTitle"
-    android:layout_width="match_parent"
+    android:layout_width="0dp"
     android:layout_height="wrap_content"
     android:textAppearance="?attr/textAppearanceListItem"
     android:textSize="16sp"
-    android:maxLines="1"
+    android:maxLines="2"
     android:ellipsize="end"
-    tools:text="Conversation started on..." /> </LinearLayout>
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintEnd_toStartOf="@+id/buttonDeleteConversation"
+    android:layout_marginEnd="8dp"
+    tools:text="This is a sample conversation title that might be quite long" />
+
+    <ImageButton
+        android:id="@+id/buttonDeleteConversation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@android:drawable/ic_menu_delete"
+        android:contentDescription="@string/delete"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        app:tint="?android:attr/textColorSecondary"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

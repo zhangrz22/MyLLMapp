@@ -1,39 +1,34 @@
 package com.example.myllmapp.db;
 
-import androidx.lifecycle.LiveData; // Use LiveData for observing changes
+import androidx.lifecycle.LiveData;
 import androidx.room.Dao;
 import androidx.room.Insert;
-import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
+import androidx.room.Delete; // If you want to delete by object
 
 import com.example.myllmapp.model.Conversation;
 
 import java.util.List;
 
 /**
- * Data Access Object (DAO) for the Conversation entity.
+ * Data Access Object for the Conversation entity.
  * Conversation 实体的 数据访问对象 (DAO)。
  */
 @Dao
 public interface ConversationDao {
 
     /**
-     * Inserts a new conversation into the database. If the conversation already exists,
-     * it replaces it. Returns the row ID of the newly inserted conversation.
-     * 将新对话插入数据库。如果对话已存在，则替换它。返回新插入对话的行 ID。
-     * Note: This operation should be performed on a background thread.
-     * 注意：此操作应在后台线程执行。
+     * Inserts a new conversation into the database.
+     * 将新对话插入数据库。
      * @param conversation The conversation to insert. / 要插入的对话。
-     * @return The row ID of the inserted conversation. / 插入对话的行 ID。
+     * @return The row ID of the newly inserted conversation. / 新插入对话的行 ID。
      */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert
     long insertConversation(Conversation conversation);
 
     /**
-     * Retrieves all conversations from the database, ordered by start time descending.
-     * Uses LiveData to automatically update the UI when data changes.
-     * 从数据库检索所有对话，按开始时间降序排列。
-     * 使用 LiveData 在数据更改时自动更新 UI。
+     * Retrieves all conversations, ordered by start time descending.
+     * 检索所有对话，按开始时间降序排列。
      * @return A LiveData list of all conversations. / 所有对话的 LiveData 列表。
      */
     @Query("SELECT * FROM conversations ORDER BY startTime DESC")
@@ -42,14 +37,26 @@ public interface ConversationDao {
     /**
      * Retrieves a specific conversation by its ID.
      * 根据 ID 检索特定对话。
-     * Note: This operation should be performed on a background thread.
-     * 注意：此操作应在后台线程执行。
      * @param id The ID of the conversation. / 对话的 ID。
-     * @return The Conversation object, or null if not found. / Conversation 对象，如果未找到则为 null。
+     * @return The conversation object, or null if not found. / 对话对象，如果未找到则为 null。
      */
     @Query("SELECT * FROM conversations WHERE id = :id")
-    Conversation getConversationById(long id); // Consider returning LiveData<Conversation> if needed for observation
+    Conversation getConversationById(long id); // Might need background thread / 可能需要后台线程
 
-    // Add other methods like update or delete if needed
-    // 如果需要，添加其他方法，如更新或删除
+    // --- 新增方法 ---
+    /**
+     * Deletes a conversation by its ID.
+     * Should be called from a background thread.
+     * 根据 ID 删除对话。应在后台线程调用。
+     * @param id The ID of the conversation to delete. / 要删除的对话的 ID。
+     */
+    @Query("DELETE FROM conversations WHERE id = :id")
+    void deleteConversationById(long id);
+    // --- 结束新增 ---
+
+    // Optional: Delete by object instance
+    // 可选：通过对象实例删除
+    // @Delete
+    // void deleteConversation(Conversation conversation);
+
 }

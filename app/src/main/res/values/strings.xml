@@ -5,7 +5,11 @@
     <string name="type_a_message">Type a message…</string>
     <string name="send_message">Send Message</string>
     <string name="conversation_title_prefix">对话开始于</string>
-    <string name="chat_history">Chat History</string>
+    <string name="chat_history">对话历史</string>
     <string name="chat_with_llm">Chat</string>
     <string name="new_chat_tooltip">Create New Chat</string>
+    <string name="delete_conversation_title">删除对话</string>
+    <string name="delete_conversation_message">确定要删除此对话及其所有消息吗？</string>
+    <string name="delete">删除</string>
+    <string name="cancel">取消</string>
 </resources>

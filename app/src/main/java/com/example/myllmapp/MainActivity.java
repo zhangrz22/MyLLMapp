@@ -3,9 +3,11 @@ package com.example.myllmapp;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
-import android.os.Handler; // 新增导入
-import android.os.Looper;  // 新增导入
+import android.os.Handler;
+import android.os.Looper;
+import android.widget.Toast; // 新增导入
 
+import androidx.appcompat.app.AlertDialog; // 新增导入
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.TooltipCompat;
 import androidx.lifecycle.ViewModelProvider; // Consider using ViewModel later
@@ -15,27 +17,28 @@ import com.example.myllmapp.adapter.ChatHistoryAdapter;
 import com.example.myllmapp.databinding.ActivityMainBinding; // Import ViewBinding
 import com.example.myllmapp.db.AppDatabase;
 import com.example.myllmapp.db.ConversationDao;
-import com.example.myllmapp.db.MessageDao; // 新增导入
+import com.example.myllmapp.db.MessageDao;
 import com.example.myllmapp.model.Conversation;
 
-import java.util.List; // 新增导入
-import java.util.concurrent.ExecutorService; // 新增导入
-import java.util.concurrent.Executors; // 新增导入
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 /**
  * MainActivity displays the list of past conversations.
  * 主 Activity，显示过往对话列表。
  */
-public class MainActivity extends AppCompatActivity implements ChatHistoryAdapter.OnConversationClickListener {
+// --- 修改：实现新的监听器接口 ---
+public class MainActivity extends AppCompatActivity implements ChatHistoryAdapter.OnConversationInteractionListener {
+// --- 结束修改 ---
 
-    private ActivityMainBinding binding; // ViewBinding instance / ViewBinding 实例
+    private ActivityMainBinding binding;
     private AppDatabase db;
     private ConversationDao conversationDao;
-    private MessageDao messageDao; // 新增：MessageDao 实例
+    private MessageDao messageDao;
     private ChatHistoryAdapter adapter;
 
-    // 新增：用于后台任务的 ExecutorService 和用于主线程的 Handler
     private final ExecutorService databaseExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainThreadHandler = new Handler(Looper.getMainLooper());
 
@@ -45,34 +48,24 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Inflate layout using ViewBinding / 使用 ViewBinding 填充布局
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // Set the title / 设置标题
         setTitle(getString(R.string.chat_history));
 
-        // Get database instance and DAOs / 获取数据库实例和 DAO
         db = AppDatabase.getDatabase(getApplicationContext());
         conversationDao = db.conversationDao();
-        messageDao = db.messageDao(); // 初始化 messageDao
+        messageDao = db.messageDao();
 
-        // Setup RecyclerView / 设置 RecyclerView
         setupRecyclerView();
-
-        // Observe conversation history from database / 观察来自数据库的对话历史
         observeConversations();
 
-        // Setup FAB click listener / 设置 FAB 点击监听器
         binding.fabNewChat.setOnClickListener(v -> {
-            // Start ChatActivity for a new conversation / 为新对话启动 ChatActivity
             Intent intent = new Intent(MainActivity.this, ChatActivity.class);
-            // Pass -1 or don't pass extra to indicate new chat / 传递 -1 或不传递 extra 来表示新对话
             intent.putExtra(EXTRA_CONVERSATION_ID, -1L);
             startActivity(intent);
         });
 
-        // 为 FAB 设置 Tooltip
         TooltipCompat.setTooltipText(binding.fabNewChat, getString(R.string.new_chat_tooltip));
     }
 
@@ -81,7 +74,9 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
      * 设置 RecyclerView 及其 Adapter 和 LayoutManager。
      */
     private void setupRecyclerView() {
-        adapter = new ChatHistoryAdapter(this); // Pass 'this' as the listener / 将 'this' 作为监听器传递
+        // --- 修改：传递 this 作为新的监听器类型 ---
+        adapter = new ChatHistoryAdapter(this);
+        // --- 结束修改 ---
         binding.recyclerViewChatHistory.setAdapter(adapter);
         binding.recyclerViewChatHistory.setLayoutManager(new LinearLayoutManager(this));
     }
@@ -96,35 +91,24 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
     private void observeConversations() {
         conversationDao.getAllConversations().observe(this, conversations -> {
             if (conversations == null) {
-                // Handle null case if necessary, maybe clear adapter
-                // 如果需要，处理 null 情况，可能需要清除 adapter
-                adapter.submitList(null); // 清除列表
+                adapter.submitList(null);
                 binding.textViewEmptyHistory.setVisibility(View.VISIBLE);
                 binding.recyclerViewChatHistory.setVisibility(View.GONE);
                 return;
             }
 
-            // Show empty state text immediately if the list is empty
-            // 如果列表为空，立即显示空状态文本
             if (conversations.isEmpty()) {
-                adapter.submitList(conversations); // 提交空列表以清除旧数据
+                adapter.submitList(conversations);
                 binding.textViewEmptyHistory.setVisibility(View.VISIBLE);
                 binding.recyclerViewChatHistory.setVisibility(View.GONE);
             } else {
                 binding.textViewEmptyHistory.setVisibility(View.GONE);
                 binding.recyclerViewChatHistory.setVisibility(View.VISIBLE);
-                // Process titles in the background only if list is not empty
-                // 仅当列表不为空时才在后台处理标题
                 databaseExecutor.execute(() -> {
-                    // Fetch first message text for each conversation
-                    // 为每个对话获取第一条消息文本
                     for (Conversation conversation : conversations) {
                         String firstMessage = messageDao.getFirstMessageTextSync(conversation.getId());
-                        conversation.setDisplayTitle(firstMessage); // Store it in the temporary field / 将其存储在临时字段中
+                        conversation.setDisplayTitle(firstMessage);
                     }
-
-                    // Update the RecyclerView on the main thread
-                    // 在主线程更新 RecyclerView
                     mainThreadHandler.post(() -> {
                         adapter.submitList(conversations);
                     });
@@ -135,25 +119,78 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
 
 
     /**
-     * Callback method from ChatHistoryAdapter.OnConversationClickListener.
+     * Callback method from ChatHistoryAdapter.OnConversationInteractionListener.
      * Called when a conversation item is clicked.
-     * 来自 ChatHistoryAdapter.OnConversationClickListener 的回调方法。
+     * 来自 ChatHistoryAdapter.OnConversationInteractionListener 的回调方法。
      * 当对话项被点击时调用。
      * @param conversation The conversation that was clicked. / 被点击的对话。
      */
     @Override
     public void onConversationClick(Conversation conversation) {
-        // Start ChatActivity and pass the clicked conversation's ID / 启动 ChatActivity 并传递被点击对话的 ID
         Intent intent = new Intent(MainActivity.this, ChatActivity.class);
         intent.putExtra(EXTRA_CONVERSATION_ID, conversation.id);
         startActivity(intent);
     }
 
+    // --- 新增：处理删除按钮点击 ---
+    /**
+     * Callback method from ChatHistoryAdapter.OnConversationInteractionListener.
+     * Called when the delete button on a conversation item is clicked.
+     * Shows a confirmation dialog before proceeding with deletion.
+     * 来自 ChatHistoryAdapter.OnConversationInteractionListener 的回调方法。
+     * 当对话项上的删除按钮被点击时调用。
+     * 在执行删除前显示确认对话框。
+     * @param conversation The conversation to be deleted. / 要被删除的对话。
+     */
+    @Override
+    public void onDeleteClick(Conversation conversation) {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.delete_conversation_title) // Use existing string resource
+                .setMessage(R.string.delete_conversation_message) // Use existing string resource
+                .setPositiveButton(R.string.delete, (dialog, which) -> {
+                    // Call method to delete conversation and its messages
+                    // 调用方法删除对话及其消息
+                    deleteConversationAndMessages(conversation.getId());
+                })
+                .setNegativeButton(R.string.cancel, null) // Use existing string resource
+                .setIcon(android.R.drawable.ic_dialog_alert) // Optional: add an icon
+                .show();
+    }
+    // --- 结束新增 ---
+
+    // --- 新增：执行删除操作的方法 ---
+    /**
+     * Deletes a conversation and all its associated messages from the database.
+     * This operation is performed on a background thread.
+     * 从数据库中删除一个对话及其所有关联的消息。
+     * 此操作在后台线程执行。
+     * @param conversationId The ID of the conversation to delete. / 要删除的对话的 ID。
+     */
+    private void deleteConversationAndMessages(long conversationId) {
+        databaseExecutor.execute(() -> {
+            // First delete messages associated with the conversation
+            // 首先删除与对话关联的消息
+            messageDao.deleteMessagesForConversation(conversationId); // Ensure this method exists and works
+
+            // Then delete the conversation itself
+            // 然后删除对话本身
+            conversationDao.deleteConversationById(conversationId);
+
+            // Optionally, show a confirmation toast on the main thread
+            // 可选：在主线程显示确认 Toast
+            mainThreadHandler.post(() -> {
+                Toast.makeText(MainActivity.this, "Conversation deleted", Toast.LENGTH_SHORT).show();
+            });
+            // The LiveData observer for conversations will automatically update the list
+            // 对话的 LiveData 观察者将自动更新列表
+        });
+    }
+    // --- 结束新增 ---
+
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Shutdown the executor service to prevent leaks
-        // 关闭 executor service 防止内存泄漏
         databaseExecutor.shutdown();
     }
 }
