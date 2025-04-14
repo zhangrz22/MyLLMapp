@@ -3,8 +3,11 @@ package com.example.myllmapp;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.os.Handler; // 新增导入
+import android.os.Looper;  // 新增导入
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.TooltipCompat;
 import androidx.lifecycle.ViewModelProvider; // Consider using ViewModel later
 import androidx.recyclerview.widget.LinearLayoutManager;
 
@@ -12,7 +15,13 @@ import com.example.myllmapp.adapter.ChatHistoryAdapter;
 import com.example.myllmapp.databinding.ActivityMainBinding; // Import ViewBinding
 import com.example.myllmapp.db.AppDatabase;
 import com.example.myllmapp.db.ConversationDao;
+import com.example.myllmapp.db.MessageDao; // 新增导入
 import com.example.myllmapp.model.Conversation;
+
+import java.util.List; // 新增导入
+import java.util.concurrent.ExecutorService; // 新增导入
+import java.util.concurrent.Executors; // 新增导入
+
 
 /**
  * MainActivity displays the list of past conversations.
@@ -23,7 +32,13 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
     private ActivityMainBinding binding; // ViewBinding instance / ViewBinding 实例
     private AppDatabase db;
     private ConversationDao conversationDao;
+    private MessageDao messageDao; // 新增：MessageDao 实例
     private ChatHistoryAdapter adapter;
+
+    // 新增：用于后台任务的 ExecutorService 和用于主线程的 Handler
+    private final ExecutorService databaseExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainThreadHandler = new Handler(Looper.getMainLooper());
+
 
     public static final String EXTRA_CONVERSATION_ID = "com.example.myllmapp.CONVERSATION_ID";
 
@@ -37,9 +52,10 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
         // Set the title / 设置标题
         setTitle(getString(R.string.chat_history));
 
-        // Get database instance and DAO / 获取数据库实例和 DAO
+        // Get database instance and DAOs / 获取数据库实例和 DAO
         db = AppDatabase.getDatabase(getApplicationContext());
         conversationDao = db.conversationDao();
+        messageDao = db.messageDao(); // 初始化 messageDao
 
         // Setup RecyclerView / 设置 RecyclerView
         setupRecyclerView();
@@ -55,6 +71,9 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
             intent.putExtra(EXTRA_CONVERSATION_ID, -1L);
             startActivity(intent);
         });
+
+        // 为 FAB 设置 Tooltip
+        TooltipCompat.setTooltipText(binding.fabNewChat, getString(R.string.new_chat_tooltip));
     }
 
     /**
@@ -69,26 +88,51 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
 
     /**
      * Observes the LiveData stream of conversations from the DAO.
-     * Updates the adapter and empty state view when data changes.
+     * Fetches the first message for each conversation on a background thread
+     * to use as the title, then updates the adapter on the main thread.
      * 观察来自 DAO 的对话 LiveData 流。
-     * 当数据更改时更新 Adapter 和空状态视图。
+     * 在后台线程为每个对话获取第一条消息作为标题，然后在主线程更新 Adapter。
      */
     private void observeConversations() {
-        // Use LiveData provided by Room to observe changes / 使用 Room 提供的 LiveData 观察更改
         conversationDao.getAllConversations().observe(this, conversations -> {
-            // Update the cached copy of the words in the adapter. / 更新 Adapter 中的缓存副本。
-            adapter.submitList(conversations);
+            if (conversations == null) {
+                // Handle null case if necessary, maybe clear adapter
+                // 如果需要，处理 null 情况，可能需要清除 adapter
+                adapter.submitList(null); // 清除列表
+                binding.textViewEmptyHistory.setVisibility(View.VISIBLE);
+                binding.recyclerViewChatHistory.setVisibility(View.GONE);
+                return;
+            }
 
-            // Show empty state text if the list is empty / 如果列表为空，显示空状态文本
-            if (conversations == null || conversations.isEmpty()) {
+            // Show empty state text immediately if the list is empty
+            // 如果列表为空，立即显示空状态文本
+            if (conversations.isEmpty()) {
+                adapter.submitList(conversations); // 提交空列表以清除旧数据
                 binding.textViewEmptyHistory.setVisibility(View.VISIBLE);
                 binding.recyclerViewChatHistory.setVisibility(View.GONE);
             } else {
                 binding.textViewEmptyHistory.setVisibility(View.GONE);
                 binding.recyclerViewChatHistory.setVisibility(View.VISIBLE);
+                // Process titles in the background only if list is not empty
+                // 仅当列表不为空时才在后台处理标题
+                databaseExecutor.execute(() -> {
+                    // Fetch first message text for each conversation
+                    // 为每个对话获取第一条消息文本
+                    for (Conversation conversation : conversations) {
+                        String firstMessage = messageDao.getFirstMessageTextSync(conversation.getId());
+                        conversation.setDisplayTitle(firstMessage); // Store it in the temporary field / 将其存储在临时字段中
+                    }
+
+                    // Update the RecyclerView on the main thread
+                    // 在主线程更新 RecyclerView
+                    mainThreadHandler.post(() -> {
+                        adapter.submitList(conversations);
+                    });
+                });
             }
         });
     }
+
 
     /**
      * Callback method from ChatHistoryAdapter.OnConversationClickListener.
@@ -103,5 +147,13 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
         Intent intent = new Intent(MainActivity.this, ChatActivity.class);
         intent.putExtra(EXTRA_CONVERSATION_ID, conversation.id);
         startActivity(intent);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Shutdown the executor service to prevent leaks
+        // 关闭 executor service 防止内存泄漏
+        databaseExecutor.shutdown();
     }
 }

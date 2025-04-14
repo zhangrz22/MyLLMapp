@@ -7,4 +7,5 @@
     <string name="conversation_title_prefix">对话开始于</string>
     <string name="chat_history">Chat History</string>
     <string name="chat_with_llm">Chat</string>
+    <string name="new_chat_tooltip">Create New Chat</string>
 </resources>

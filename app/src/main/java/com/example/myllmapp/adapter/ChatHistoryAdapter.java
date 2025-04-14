@@ -1,6 +1,5 @@
 package com.example.myllmapp.adapter;
 
-import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,8 +8,8 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.myllmapp.R; // Import R class
-import com.example.myllmapp.databinding.ItemChatHistoryBinding; // Import ViewBinding class
+import com.example.myllmapp.R; // Ensure R file is imported correctly / 确保 R 文件被正确导入
+import com.example.myllmapp.databinding.ItemChatHistoryBinding;
 import com.example.myllmapp.model.Conversation;
 
 import java.text.SimpleDateFormat;
@@ -18,19 +17,17 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- * Adapter for displaying the list of conversations in a RecyclerView.
- * Uses ListAdapter for efficient updates.
- * 用于在 RecyclerView 中显示对话列表的 Adapter。
- * 使用 ListAdapter 实现高效更新。
+ * Adapter for displaying chat history items in a RecyclerView.
+ * 用于在 RecyclerView 中显示聊天历史记录项的 Adapter。
  */
-public class ChatHistoryAdapter extends ListAdapter<Conversation, ChatHistoryAdapter.ChatHistoryViewHolder> {
+public class ChatHistoryAdapter extends ListAdapter<Conversation, ChatHistoryAdapter.ConversationViewHolder> {
 
-    private final OnConversationClickListener listener;
-    private final SimpleDateFormat dateFormat; // For formatting timestamp / 用于格式化时间戳
+    private final OnConversationClickListener clickListener;
+    private static final int MAX_TITLE_LENGTH = 50; // Define max title length / 定义标题最大长度
 
     /**
-     * Interface definition for a callback to be invoked when a conversation item is clicked.
-     * 当对话项被点击时调用的回调接口定义。
+     * Interface for handling clicks on conversation items.
+     * 用于处理对话项点击事件的接口。
      */
     public interface OnConversationClickListener {
         void onConversationClick(Conversation conversation);
@@ -39,114 +36,121 @@ public class ChatHistoryAdapter extends ListAdapter<Conversation, ChatHistoryAda
     /**
      * Constructor for ChatHistoryAdapter.
      * ChatHistoryAdapter 的构造函数。
-     * @param listener Listener for item clicks. / 列表项点击的监听器。
+     * @param clickListener Listener for conversation item clicks. / 对话项点击事件的监听器。
      */
-    public ChatHistoryAdapter(@NonNull OnConversationClickListener listener) {
+    public ChatHistoryAdapter(OnConversationClickListener clickListener) {
         super(DIFF_CALLBACK);
-        this.listener = listener;
-        // Initialize date formatter / 初始化日期格式化器
-        this.dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+        this.clickListener = clickListener;
     }
 
     /**
-     * Creates new views (invoked by the layout manager).
-     * 创建新的视图（由布局管理器调用）。
-     */
-    @NonNull
-    @Override
-    public ChatHistoryViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // Inflate the layout using ViewBinding / 使用 ViewBinding 填充布局
-        ItemChatHistoryBinding binding = ItemChatHistoryBinding.inflate(
-                LayoutInflater.from(parent.getContext()), parent, false);
-        // Pass the listener to the ViewHolder constructor
-        // 将 listener 传递给 ViewHolder 构造函数
-        return new ChatHistoryViewHolder(binding, listener);
-    }
-
-    /**
-     * Replaces the contents of a view (invoked by the layout manager).
-     * 替换视图的内容（由布局管理器调用）。
-     */
-    @Override
-    public void onBindViewHolder(@NonNull ChatHistoryViewHolder holder, int position) {
-        Conversation currentConversation = getItem(position);
-        // Pass the specific conversation to the bind method
-        // 将特定的 conversation 传递给 bind 方法
-        holder.bind(currentConversation, dateFormat);
-    }
-
-    /**
-     * Provides a reference to the views for each data item.
-     * ViewHolder should be static if it doesn't need direct access to the adapter's non-static members.
-     * 提供对每个数据项视图的引用。
-     * 如果 ViewHolder 不需要直接访问 adapter 的非静态成员，则应为 static。
-     */
-    static class ChatHistoryViewHolder extends RecyclerView.ViewHolder {
-        private final ItemChatHistoryBinding binding; // ViewBinding instance / ViewBinding 实例
-        private final OnConversationClickListener listener; // Store the listener instance / 存储 listener 实例
-
-        /**
-         * Constructor for the ViewHolder.
-         * ViewHolder 的构造函数。
-         * @param binding The ViewBinding instance for the item layout. / 列表项布局的 ViewBinding 实例。
-         * @param listener Listener for item clicks passed from the adapter. / 从 adapter 传递过来的列表项点击监听器。
-         */
-        ChatHistoryViewHolder(@NonNull ItemChatHistoryBinding binding, OnConversationClickListener listener) {
-            super(binding.getRoot());
-            this.binding = binding;
-            this.listener = listener; // Store the listener passed from the adapter / 存储从 adapter 传来的 listener
-            // DO NOT set listener here if it needs the specific item data (like conversation)
-            // 如果监听器需要特定的项目数据（如 conversation），不要在此处设置
-        }
-
-        /**
-         * Binds conversation data to the views and sets the click listener.
-         * 将对话数据绑定到视图并设置点击监听器。
-         * @param conversation The conversation data object. / 对话数据对象。
-         * @param dateFormat Formatter for the timestamp. / 用于时间戳的格式化器。
-         */
-        void bind(final Conversation conversation, SimpleDateFormat dateFormat) {
-            // Format the start time and set it to the TextView
-            // 格式化开始时间并设置到 TextView
-            String formattedTime = dateFormat.format(new Date(conversation.startTime));
-            // Ensure R.string.conversation_title_prefix exists! / 确保 R.string.conversation_title_prefix 存在！
-            String title = itemView.getContext().getString(R.string.conversation_title_prefix) + " " + formattedTime;
-            binding.textViewConversationTitle.setText(title);
-
-            // Set click listener on the root view of the item HERE, using the specific 'conversation'
-            // 在此处为列表项的根视图设置点击监听器，使用特定的 'conversation'
-            binding.getRoot().setOnClickListener(v -> {
-                if (listener != null) {
-                    // Pass the specific conversation object for this item
-                    // 传递此项特定的 conversation 对象
-                    listener.onConversationClick(conversation);
-                }
-            });
-        }
-    }
-
-    /**
-     * DiffUtil.ItemCallback for calculating the difference between two non-null items in a list.
-     * Used by ListAdapter to detect changes.
-     * This should be static.
-     * 用于计算列表中两个非空项之间差异的 DiffUtil.ItemCallback。
-     * ListAdapter 使用它来检测更改。
-     * 这应该是 static 的。
+     * DiffUtil.ItemCallback for calculating the difference between two Conversation lists.
+     * 用于计算两个 Conversation 列表之间差异的 DiffUtil.ItemCallback。
      */
     private static final DiffUtil.ItemCallback<Conversation> DIFF_CALLBACK =
             new DiffUtil.ItemCallback<Conversation>() {
                 @Override
                 public boolean areItemsTheSame(@NonNull Conversation oldItem, @NonNull Conversation newItem) {
-                    // Check if items represent the same entity (e.g., by ID)
-                    // 检查项是否代表同一个实体（例如，通过 ID）
-                    return oldItem.id == newItem.id;
+                    // Check if items represent the same entity (by ID)
+                    // 检查项是否代表同一个实体（通过 ID）
+                    return oldItem.getId() == newItem.getId();
                 }
 
                 @Override
                 public boolean areContentsTheSame(@NonNull Conversation oldItem, @NonNull Conversation newItem) {
                     // Check if the content of the items is the same
                     // 检查项的内容是否相同
-                    return oldItem.startTime == newItem.startTime;
+                    // We need to compare displayTitle as well now
+                    // 现在我们也需要比较 displayTitle
+                    // --- 修改：使用 getStartTime ---
+                    return oldItem.getStartTime() == newItem.getStartTime() &&
+                            (oldItem.getDisplayTitle() != null ? oldItem.getDisplayTitle().equals(newItem.getDisplayTitle()) : newItem.getDisplayTitle() == null);
+                    // --- 结束修改 ---
                 }
             };
+
+    @NonNull
+    @Override
+    public ConversationViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        // Inflate the item layout using ViewBinding / 使用 ViewBinding 填充项布局
+        ItemChatHistoryBinding binding = ItemChatHistoryBinding.inflate(
+                LayoutInflater.from(parent.getContext()), parent, false);
+        return new ConversationViewHolder(binding, clickListener);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull ConversationViewHolder holder, int position) {
+        // Get the conversation at the current position / 获取当前位置的对话
+        Conversation currentConversation = getItem(position);
+        // Bind the conversation data to the ViewHolder / 将对话数据绑定到 ViewHolder
+        holder.bind(currentConversation);
+    }
+
+    /**
+     * ViewHolder class for conversation items.
+     * 对话项的 ViewHolder 类。
+     */
+    static class ConversationViewHolder extends RecyclerView.ViewHolder {
+        private final ItemChatHistoryBinding binding; // ViewBinding instance / ViewBinding 实例
+        private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+
+        /**
+         * Constructor for ConversationViewHolder.
+         * ConversationViewHolder 的构造函数。
+         * @param binding The ViewBinding instance for the item layout. / 项布局的 ViewBinding 实例。
+         * @param listener Listener for click events. / 点击事件的监听器。
+         */
+        ConversationViewHolder(ItemChatHistoryBinding binding, OnConversationClickListener listener) {
+            super(binding.getRoot());
+            this.binding = binding;
+
+            // Set click listener for the item view / 为项视图设置点击监听器
+            binding.getRoot().setOnClickListener(v -> {
+                int position = getAdapterPosition();
+                if (listener != null && position != RecyclerView.NO_POSITION) {
+                    // Get the adapter associated with this ViewHolder
+                    // 获取与此 ViewHolder 关联的适配器
+                    RecyclerView.Adapter<?> adapter = getBindingAdapter();
+                    if (adapter instanceof ChatHistoryAdapter) {
+                        // Pass the clicked conversation object to the listener
+                        // 将被点击的对话对象传递给监听器
+                        listener.onConversationClick(((ChatHistoryAdapter) adapter).getItem(position));
+                    }
+                }
+            });
+        }
+
+
+        /**
+         * Binds conversation data to the views in the item layout.
+         * 将对话数据绑定到项布局中的视图。
+         * @param conversation The conversation object to bind. / 要绑定的对话对象。
+         */
+        void bind(Conversation conversation) {
+            // --- 修改标题显示逻辑 ---
+            String title = conversation.getDisplayTitle();
+            if (title != null && !title.trim().isEmpty()) {
+                // Use the first message as title, truncate if necessary
+                // 使用第一条消息作为标题，必要时截断
+                if (title.length() > MAX_TITLE_LENGTH) {
+                    title = title.substring(0, MAX_TITLE_LENGTH) + "...";
+                }
+                binding.textViewConversationTitle.setText(title);
+            } else {
+                // Fallback: Use timestamp if no first message or title is empty
+                // 回退：如果没有第一条消息或标题为空，则使用时间戳
+                // --- 修改：使用 getStartTime ---
+                String formattedDate = dateFormat.format(new Date(conversation.getStartTime()));
+                // --- 结束修改 ---
+                // Consider using a string resource for the prefix
+                // 考虑为前缀使用字符串资源
+                binding.textViewConversationTitle.setText(itemView.getContext().getString(R.string.conversation_title_prefix) + " " + formattedDate);
+            }
+            // --- 结束修改 ---
+
+            // You might want a subtitle or keep the date somewhere else
+            // 你可能想要一个副标题或将日期显示在其他地方
+            // binding.textViewConversationDate.setText(dateFormat.format(new Date(conversation.getStartTime()))); // 如果需要显示日期，也用 getStartTime
+        }
+    }
 }

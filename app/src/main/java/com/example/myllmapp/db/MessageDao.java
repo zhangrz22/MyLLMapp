@@ -38,15 +38,39 @@ public interface MessageDao {
     @Query("SELECT * FROM messages WHERE conversation_id = :conversationId ORDER BY timestamp ASC")
     LiveData<List<Message>> getMessagesForConversation(long conversationId);
 
-    // Add other methods like update or delete if needed
-    // 如果需要，添加其他方法，如更新或删除
-    // 在MessageDao接口中添加
+
     /**
-     * 获取某个对话的最近N条消息
-     * @param conversationId 对话ID
-     * @param limit 消息数量限制
-     * @return 消息列表，按时间升序排列
+     * 获取某个对话的最近N条消息 (同步)
+     * Gets the N most recent messages for a specific conversation (synchronous).
+     * Should be called from a background thread.
+     * @param conversationId 对话ID / The ID of the conversation.
+     * @param limit 消息数量限制 / The maximum number of messages to retrieve.
+     * @return 消息列表，按时间升序排列 / A list of messages, ordered by timestamp ascending.
      */
     @Query("SELECT * FROM messages WHERE conversation_id = :conversationId ORDER BY timestamp ASC LIMIT :limit")
     List<Message> getRecentMessagesForConversation(long conversationId, int limit);
+
+
+    /**
+     * Gets the text of the first message for a specific conversation (synchronous).
+     * Should be called from a background thread.
+     * 同步获取特定对话的第一条消息的文本。应在后台线程调用。
+     * @param conversationId The ID of the conversation. / 对话的 ID。
+     * @return The text of the first message, or null if no messages exist. / 第一条消息的文本，如果不存在消息则为 null。
+     */
+    @Query("SELECT text FROM messages WHERE conversation_id = :conversationId ORDER BY timestamp ASC LIMIT 1")
+    String getFirstMessageTextSync(long conversationId);
+
+
+    /**
+     * Deletes all messages for a specific conversation.
+     * 删除特定对话的所有消息。
+     * Note: This operation should be performed on a background thread.
+     * 注意：此操作应在后台线程执行。
+     * @param conversationId The ID of the conversation to delete messages from. / 要删除消息的对话的 ID。
+     */
+    @Query("DELETE FROM messages WHERE conversation_id = :conversationId")
+    void deleteMessagesForConversation(long conversationId); // 之前版本中存在，根据需要保留或移除
+
+
 }
