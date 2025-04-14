@@ -132,7 +132,6 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
         startActivity(intent);
     }
 
-    // --- 新增：处理删除按钮点击 ---
     /**
      * Callback method from ChatHistoryAdapter.OnConversationInteractionListener.
      * Called when the delete button on a conversation item is clicked.
@@ -156,9 +155,6 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
                 .setIcon(android.R.drawable.ic_dialog_alert) // Optional: add an icon
                 .show();
     }
-    // --- 结束新增 ---
-
-    // --- 新增：执行删除操作的方法 ---
     /**
      * Deletes a conversation and all its associated messages from the database.
      * This operation is performed on a background thread.
@@ -185,7 +181,6 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
             // 对话的 LiveData 观察者将自动更新列表
         });
     }
-    // --- 结束新增 ---
 
 
     @Override
