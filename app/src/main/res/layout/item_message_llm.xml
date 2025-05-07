@@ -14,24 +14,24 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_message_llm"
-        android:padding="12dp"
-        android:textColor="?android:attr/textColorPrimary"
+        android:textColor="@color/message_llm_text"
         android:textAppearance="?attr/textAppearanceBody1"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintWidth_max="wrap"
         app:layout_constraintHorizontal_bias="0.0"
-        tools:text="This is a response from the LLM. It can also be quite long and informative, potentially spanning multiple lines." />
+        tools:text="这是来自LLM的回复。它可能也会很长很信息丰富，可能会跨越多行。" />
 
     <TextView
         android:id="@+id/textViewMessageTimestamp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="10sp"
-        android:layout_marginTop="2dp"
-        android:textColor="?android:attr/textColorSecondary"
+        android:layout_marginTop="4dp"
+        android:layout_marginStart="4dp"
+        android:textColor="@color/text_secondary"
         app:layout_constraintTop_toBottomOf="@id/textViewMessageText"
         app:layout_constraintStart_toStartOf="@id/textViewMessageText"
-        tools:text="10:31 AM" />
+        tools:text="10:31" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

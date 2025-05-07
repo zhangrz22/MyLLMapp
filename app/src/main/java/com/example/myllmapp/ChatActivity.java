@@ -73,6 +73,20 @@ public class ChatActivity extends AppCompatActivity {
 
         // Setup RecyclerView / 设置 RecyclerView
         setupRecyclerView();
+        
+        // 设置工具栏
+        setSupportActionBar(binding.toolbar);
+        // 启用返回箭头
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setDisplayShowHomeEnabled(true);
+        }
+        
+        // 设置工具栏导航点击监听器
+        binding.toolbar.setNavigationOnClickListener(v -> {
+            // 返回上一个界面
+            onBackPressed();
+        });
 
         // Get conversation ID from intent / 从 Intent 获取对话 ID
         long conversationIdFromIntent = getIntent().getLongExtra(MainActivity.EXTRA_CONVERSATION_ID, -1L);

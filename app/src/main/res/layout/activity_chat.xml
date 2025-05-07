@@ -4,56 +4,78 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/background"
     tools:context=".ChatActivity">
 
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="0dp"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/primary"
+        android:elevation="4dp"
+        app:titleTextColor="@color/white"
+        app:navigationIcon="@drawable/ic_back_arrow"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+        
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewMessages"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
         android:clipToPadding="false"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/viewInputDivider"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintBottom_toTopOf="@id/inputContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         tools:listitem="@layout/item_message_user" />
-    <View
-    android:id="@+id/viewInputDivider"
-    android:layout_width="0dp"
-    android:layout_height="1dp"
-    android:background="?android:attr/listDivider"
-    app:layout_constraintBottom_toTopOf="@id/editTextMessageInput"
-    app:layout_constraintStart_toStartOf="parent"
-    app:layout_constraintEnd_toEndOf="parent" />
 
-    <EditText
-        android:id="@+id/editTextMessageInput"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/inputContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:hint="@string/type_a_message"
-        android:inputType="textMultiLine|textCapSentences"
-        android:maxLines="5"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         android:paddingTop="12dp"
         android:paddingBottom="12dp"
-        android:background="@android:color/transparent"
+        android:background="@color/surface"
+        android:elevation="2dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/buttonSendMessage" />
+        app:layout_constraintEnd_toEndOf="parent">
+        
+        <EditText
+            android:id="@+id/editTextMessageInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:hint="@string/type_a_message"
+            android:inputType="textMultiLine|textCapSentences"
+            android:maxLines="5"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_hint"
+            android:background="@drawable/bg_message_input"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/buttonSendMessage"
+            app:layout_constraintHorizontal_bias="0.0" />
 
-    <ImageButton
-        android:id="@+id/buttonSendMessage"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:padding="12dp"
-        android:layout_marginEnd="8dp"
-        android:contentDescription="@string/send_message"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        app:srcCompat="@android:drawable/ic_menu_send"
-        app:layout_constraintBottom_toBottomOf="@id/editTextMessageInput"
-        app:layout_constraintTop_toTopOf="@id/editTextMessageInput"
-        app:layout_constraintEnd_toEndOf="parent" />
+        <ImageButton
+            android:id="@+id/buttonSendMessage"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="@string/send_message"
+            android:background="@drawable/bg_send_button"
+            app:srcCompat="@drawable/ic_send"
+            app:layout_constraintBottom_toBottomOf="@id/editTextMessageInput"
+            app:layout_constraintTop_toTopOf="@id/editTextMessageInput"
+            app:layout_constraintEnd_toEndOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

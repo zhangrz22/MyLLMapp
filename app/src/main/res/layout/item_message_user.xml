@@ -14,24 +14,24 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_message_user"
-        android:padding="12dp"
-        android:textColor="@android:color/white"
+        android:textColor="@color/message_user_text"
         android:textAppearance="?attr/textAppearanceBody1"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintWidth_max="wrap"
         app:layout_constraintHorizontal_bias="1.0"
-        tools:text="This is a message sent by the user. It might be quite long and wrap to multiple lines." />
+        tools:text="这是用户发送的消息，它可能很长并且会换行到多行。" />
 
     <TextView
         android:id="@+id/textViewMessageTimestamp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="10sp"
-        android:layout_marginTop="2dp"
-        android:textColor="?android:attr/textColorSecondary"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="4dp"
+        android:textColor="@color/text_secondary"
         app:layout_constraintTop_toBottomOf="@id/textViewMessageText"
         app:layout_constraintEnd_toEndOf="@id/textViewMessageText"
-        tools:text="10:30 AM" />
+        tools:text="10:30" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

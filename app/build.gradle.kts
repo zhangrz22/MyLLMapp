@@ -1,4 +1,3 @@
-import com.android.build.api.dsl.Packaging
 import java.util.Properties
 import java.io.FileInputStream
 plugins {
@@ -47,24 +46,22 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 
-    packaging {
-        resources {
-            excludes += "/META-INF/DEPENDENCIES"
-            excludes += "/META-INF/LICENSE"
-            excludes += "/META-INF/LICENSE.txt"
-            excludes += "/META-INF/license.txt"
-            excludes += "/META-INF/NOTICE"
-            excludes += "/META-INF/NOTICE.txt"
-            excludes += "/META-INF/notice.txt"
-            excludes += "/META-INF/ASL2.0"
-            excludes += "/META-INF/*.kotlin_module"
-        }
-    }
-
     // 确保生成BuildConfig
     buildFeatures {
         buildConfig = true
         viewBinding = true
+    }
+    
+    packagingOptions {
+        exclude("/META-INF/DEPENDENCIES")
+        exclude("/META-INF/LICENSE")
+        exclude("/META-INF/LICENSE.txt")
+        exclude("/META-INF/license.txt")
+        exclude("/META-INF/NOTICE")
+        exclude("/META-INF/NOTICE.txt")
+        exclude("/META-INF/notice.txt")
+        exclude("/META-INF/ASL2.0")
+        exclude("/META-INF/*.kotlin_module")
     }
 }
 
@@ -102,5 +99,11 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 
-    implementation("com.openai:openai-java:0.31.0")
+    implementation("com.openai:openai-java:0.31.0") {
+        // 排除问题依赖
+        exclude(group = "com.google.errorprone", module = "error_prone_annotations")
+    }
+    
+    // 添加兼容版本的error_prone_annotations
+    implementation("com.google.errorprone:error_prone_annotations:2.15.0")
 }
