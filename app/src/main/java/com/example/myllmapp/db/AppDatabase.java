@@ -37,7 +37,7 @@ public abstract class AppDatabase extends RoomDatabase {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
             // 添加model列，默认值为"qwen-plus-latest"
-            database.execSQL("ALTER TABLE conversations ADD COLUMN model TEXT DEFAULT 'qwen-plus-latest'");
+            database.execSQL("ALTER TABLE conversations ADD COLUMN model TEXT DEFAULT 'qwen-plus'");
         }
     };
 

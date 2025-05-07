@@ -8,6 +8,9 @@
         <item name="colorSecondaryVariant">@color/secondary_dark</item>
         <item name="colorOnSecondary">@color/black</item>
         
+        <!-- 控制元素的颜色，包括菜单图标 -->
+        <item name="colorControlNormal">@color/white</item>
+        
         <!-- 背景颜色 -->
         <item name="android:colorBackground">@color/background</item>
         <item name="colorSurface">@color/surface</item>
