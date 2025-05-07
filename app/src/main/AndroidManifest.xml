@@ -27,6 +27,12 @@
             android:exported="false"
             android:parentActivityName=".MainActivity" android:windowSoftInputMode="adjustResize"> </activity>
 
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:parentActivityName=".ChatActivity">
+        </activity>
+
     </application>
 
 </manifest>

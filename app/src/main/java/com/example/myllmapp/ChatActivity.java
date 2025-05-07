@@ -1,8 +1,11 @@
 package com.example.myllmapp;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log; // For logging / 用于日志记录
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -117,6 +120,33 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     /**
+     * 创建菜单
+     */
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_chat, menu);
+        return true;
+    }
+
+    /**
+     * 处理菜单项点击事件
+     */
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+
+        if (id == R.id.action_settings) {
+            // 启动设置活动，并传递当前对话ID
+            Intent intent = new Intent(this, SettingsActivity.class);
+            intent.putExtra(SettingsActivity.EXTRA_CONVERSATION_ID, currentConversationId.get());
+            startActivity(intent);
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    /**
      * Sets up the RecyclerView with its adapter and layout manager.
      * 设置 RecyclerView 及其 Adapter 和 LayoutManager。
      */
@@ -170,12 +200,17 @@ public class ChatActivity extends AppCompatActivity {
 
             // 1. Create Conversation if it's new / 1. 如果是新对话，则创建 Conversation
             if (conversationId == -1L) {
-                Conversation newConversation = new Conversation(System.currentTimeMillis());
+                // 获取当前选择的模型
+                String selectedModel = SettingsActivity.getSelectedModel(this);
+                Log.i("selected model:", selectedModel);
+                
+                // 创建带有模型信息的新对话
+                Conversation newConversation = new Conversation(System.currentTimeMillis(), selectedModel);
                 long newId = conversationDao.insertConversation(newConversation);
                 if (newId != -1L) { // Check if insert was successful / 检查插入是否成功
                     currentConversationId.set(newId); // Update the ID / 更新 ID
                     conversationId = newId;
-                    Log.d(TAG, "Created new conversation with ID: " + conversationId);
+                    Log.d(TAG, "Created new conversation with ID: " + conversationId + " using model: " + selectedModel);
 
                     // Start observing messages for the newly created conversation on the main thread
                     // 在主线程上开始观察新创建对话的消息
@@ -231,14 +266,21 @@ public class ChatActivity extends AppCompatActivity {
                 // 2. 获取对话历史
                 List<Message> historyMessages = messageDao.getRecentMessagesForConversation(
                         conversationId, MAX_HISTORY_MESSAGES);
-
-                // 3. 创建DashScope客户端
+                
+                // 3. 获取当前对话使用的模型
+                Conversation currentConversation = conversationDao.getConversationById(conversationId);
+                // 如果对话没有指定模型，使用设置中的模型
+                String modelToUse = (currentConversation != null && currentConversation.model != null) 
+                        ? currentConversation.model 
+                        : SettingsActivity.getSelectedModel(this);
+                
+                // 3.1 创建DashScope客户端
                 DashScopeClient dashScopeClient = DashScopeClient.getInstance(apiKey);
                 OpenAIClient client = dashScopeClient.getClient();
 
                 // 4. 构建参数
                 ChatCompletionCreateParams.Builder paramsBuilder = ChatCompletionCreateParams.builder()
-                        .model(dashScopeClient.getDefaultModel());
+                        .model(modelToUse); // 使用当前对话的模型
 
                 // 4.1 添加系统消息
                 paramsBuilder.addSystemMessage("你是一个友好、有帮助的助手，能以用户使用的语言回答用户的问题。");
@@ -262,6 +304,7 @@ public class ChatActivity extends AppCompatActivity {
                 }
 
                 final ChatCompletionCreateParams params = paramsBuilder.build();
+                final String finalModelToUse = modelToUse;
 
                 // 5. 创建一个新线程来执行API调用，因为这可能会阻塞
                 new Thread(() -> {
@@ -287,7 +330,7 @@ public class ChatActivity extends AppCompatActivity {
                                 );
                                 messageDao.insertMessage(llmMessage);
 
-                                Log.d(TAG, "Inserted LLM response: " + llmResponseText);
+                                Log.d(TAG, "Inserted LLM response using model: " + finalModelToUse);
 
                                 // 更新UI
                                 runOnUiThread(this::scrollToBottom);

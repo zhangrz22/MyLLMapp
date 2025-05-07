@@ -1,6 +1,7 @@
 package com.example.myllmapp;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
@@ -12,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.example.myllmapp.databinding.ActivitySettingsBinding;
+import com.example.myllmapp.db.AppDatabase;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,23 +25,30 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String PREF_NAME = "MyLLMAppSettings";
     public static final String PREF_USE_STREAMING = "use_streaming";
     public static final String PREF_MODEL = "selected_model";
+    public static final String EXTRA_CONVERSATION_ID = "conversation_id";
     
     // 定义支持的模型
     private static final Map<String, String> SUPPORTED_MODELS = new HashMap<>();
     static {
-        SUPPORTED_MODELS.put("通义千问-plus-latest", "qwen-plus-latest");
-        SUPPORTED_MODELS.put("通义千问3-235B-A22B", "qwen3-235b-a22b");
-        SUPPORTED_MODELS.put("通义千问3-30B-A3B", "qwen3-30b-a3b");
+        SUPPORTED_MODELS.put("通义千问-plus", "qwen-plus");
+        SUPPORTED_MODELS.put("deepseek-v3", "deepseek-v3");
     }
     
     private ActivitySettingsBinding binding;
     private SharedPreferences sharedPreferences;
+    private long currentConversationId = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivitySettingsBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        // 获取传入的对话ID
+        Intent intent = getIntent();
+        if (intent != null) {
+            currentConversationId = intent.getLongExtra(EXTRA_CONVERSATION_ID, -1);
+        }
 
         // 设置工具栏
         setSupportActionBar(binding.toolbar);
@@ -118,6 +127,9 @@ public class SettingsActivity extends AppCompatActivity {
                 editor.putString(PREF_MODEL, selectedModelId);
                 editor.apply();
                 
+                // 如果有当前对话，更新其模型
+                updateCurrentConversationModel(selectedModelId);
+                
                 // 显示保存成功提示
                 Toast.makeText(SettingsActivity.this, R.string.settings_saved, Toast.LENGTH_SHORT).show();
             }
@@ -127,6 +139,19 @@ public class SettingsActivity extends AppCompatActivity {
                 // 什么也不做
             }
         });
+    }
+    
+    /**
+     * 更新当前对话的模型
+     * @param modelId 模型ID
+     */
+    private void updateCurrentConversationModel(String modelId) {
+        if (currentConversationId != -1) {
+            AppDatabase.databaseWriteExecutor.execute(() -> {
+                AppDatabase db = AppDatabase.getDatabase(getApplicationContext());
+                db.conversationDao().updateConversationModel(currentConversationId, modelId);
+            });
+        }
     }
     
     /**
@@ -146,6 +171,6 @@ public class SettingsActivity extends AppCompatActivity {
      */
     public static String getSelectedModel(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        return prefs.getString(PREF_MODEL, "qwen-plus-latest"); // 默认为通义千问-plus-latest
+        return prefs.getString(PREF_MODEL, "qwen-plus"); // 默认为通义千问-plus-latest
     }
 } 

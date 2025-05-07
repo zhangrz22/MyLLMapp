@@ -43,6 +43,14 @@ public interface ConversationDao {
     @Query("SELECT * FROM conversations WHERE id = :id")
     Conversation getConversationById(long id); // Might need background thread / 可能需要后台线程
 
+    /**
+     * 更新对话使用的模型
+     * @param id 对话ID
+     * @param model 模型名称
+     */
+    @Query("UPDATE conversations SET model = :model WHERE id = :id")
+    void updateConversationModel(long id, String model);
+
     // --- 新增方法 ---
     /**
      * Deletes a conversation by its ID.

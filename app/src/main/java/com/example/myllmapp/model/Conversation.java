@@ -16,6 +16,9 @@ public class Conversation {
 
     public long startTime; // Timestamp when the conversation started / 对话开始的时间戳
 
+    // 对话使用的模型
+    public String model;
+
     // --- 新增字段 ---
     /**
      * Temporary field to hold the title to be displayed in the history list.
@@ -50,6 +53,18 @@ public class Conversation {
         this.startTime = startTime;
     }
 
+    /**
+     * Constructor with model parameter.
+     * 带有model参数的构造函数。
+     * @param startTime Timestamp when the conversation started. / 对话开始的时间戳。
+     * @param model The model used for this conversation. / 此对话使用的模型。
+     */
+    @Ignore
+    public Conversation(long startTime, String model) {
+        this.startTime = startTime;
+        this.model = model;
+    }
+
     // --- 新增 Getter/Setter for displayTitle ---
     public String getDisplayTitle() {
         return displayTitle;
@@ -76,6 +91,14 @@ public class Conversation {
 
     public void setStartTime(long startTime) {
         this.startTime = startTime;
+    }
+    
+    public String getModel() {
+        return model;
+    }
+    
+    public void setModel(String model) {
+        this.model = model;
     }
     // --- 结束保留 ---
 }
