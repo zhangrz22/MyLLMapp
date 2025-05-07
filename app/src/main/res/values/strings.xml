@@ -12,4 +12,16 @@
     <string name="delete_conversation_message">确定要删除此对话及其所有消息吗？</string>
     <string name="delete">删除</string>
     <string name="cancel">取消</string>
+    
+    <!-- 设置页面 -->
+    <string name="settings">设置</string>
+    <string name="output_settings">输出设置</string>
+    <string name="use_streaming_output">使用流式输出</string>
+    <string name="streaming_description">开启后，AI响应将逐字显示，提供更好的交互体验</string>
+    <string name="settings_saved">设置已保存</string>
+    
+    <!-- 模型设置 -->
+    <string name="model_settings">模型设置</string>
+    <string name="select_model">选择AI模型</string>
+    <string name="model_description">不同模型具有不同的能力和特点，请根据需要选择</string>
 </resources>
