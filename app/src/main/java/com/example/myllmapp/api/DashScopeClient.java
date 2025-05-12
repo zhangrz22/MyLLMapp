@@ -1,23 +1,30 @@
 package com.example.myllmapp.api;
 
-import android.util.Log;
+import com.alibaba.dashscope.aigc.generation.Generation;
+import com.alibaba.dashscope.aigc.generation.GenerationParam;
+import com.alibaba.dashscope.aigc.generation.GenerationResult;
+import com.alibaba.dashscope.aigc.generation.SearchOptions;
+import com.alibaba.dashscope.common.Message;
+import com.alibaba.dashscope.common.Role;
+import com.alibaba.dashscope.exception.ApiException;
+import com.alibaba.dashscope.exception.InputRequiredException;
+import com.alibaba.dashscope.exception.NoApiKeyException;
 
-import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+
 
 public class DashScopeClient {
     private static final String TAG = "DashScopeClient";
-    private static final String BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
-    private static final String DEFAULT_MODEL = "qwen-plus"; // 默认使用的模型
+    public static final String DEFAULT_MODEL = "qwen-plus";
 
     private static DashScopeClient instance;
-    private final OpenAIClient client;
+    private final String apiKey;
 
     private DashScopeClient(String apiKey) {
-        client = OpenAIOkHttpClient.builder()
-                .apiKey(apiKey)
-                .baseUrl(BASE_URL)
-                .build();
+        this.apiKey = apiKey;
     }
 
     public static synchronized DashScopeClient getInstance(String apiKey) {
@@ -27,11 +34,73 @@ public class DashScopeClient {
         return instance;
     }
 
-    public OpenAIClient getClient() {
-        return client;
-    }
-
     public String getDefaultModel() {
         return DEFAULT_MODEL;
     }
+
+    /**
+     * 调用 DashScope 生成接口，支持 enableSearch
+     */
+
+    public static GenerationResult callWithMessages(String apiKey, List<Message> messages, boolean enableSearch)
+            throws ApiException, NoApiKeyException, InputRequiredException {
+        String model = DEFAULT_MODEL;
+        for (Message msg : messages) {
+            if (msg.getRole().equals(Role.SYSTEM.getValue()) && msg.getContent().contains("model:")) {
+                // 可扩展：从system prompt中提取model
+            }
+        }
+        Generation gen = new Generation();
+
+        SearchOptions searchOptions = SearchOptions.builder()
+            .enableSource(true)
+            .enableCitation(true)
+            .citationFormat("[ref_<number>]")
+            .forcedSearch(false)
+            .searchStrategy("standard")
+            .build();
+
+
+        GenerationParam param = GenerationParam.builder()
+                .apiKey(apiKey)
+                .model(model)
+                .messages(messages)
+                .resultFormat(GenerationParam.ResultFormat.MESSAGE)
+                .enableSearch(enableSearch)
+                .searchOptions(searchOptions)
+                .build();
+        return gen.call(param);
+    }
+
+    // 保留原有方法，默认不启用联网搜索
+    public static GenerationResult callWithMessages(String apiKey, List<Message> messages)
+            throws ApiException, NoApiKeyException, InputRequiredException {
+        return callWithMessages(apiKey, messages, false);
+    }
+
+    /**
+     * 工具方法：将你的 Message 实体转为 DashScope Message
+     */
+    public static List<Message> convertToDashScopeMessages(List<com.example.myllmapp.model.Message> appMessages, boolean enableSearch) {
+        List<Message> dashScopeMessages = new ArrayList<>();
+        // 系统提示
+        StringBuilder systemPrompt = new StringBuilder("你是一个友好、有帮助的助手，能以用户使用的语言回答用户的问题。");
+        if (enableSearch) {
+            systemPrompt.append("记住, 你可以使用联网搜索");
+        }
+        dashScopeMessages.add(Message.builder()
+                .role(Role.SYSTEM.getValue())
+                .content(systemPrompt.toString())
+                .build());
+        for (com.example.myllmapp.model.Message msg : appMessages) {
+            String role = msg.sender == com.example.myllmapp.model.Sender.USER
+                    ? Role.USER.getValue() : Role.ASSISTANT.getValue();
+            dashScopeMessages.add(Message.builder()
+                    .role(role)
+                    .content(msg.text)
+                    .build());
+        }
+        return dashScopeMessages;
+    }
+
 }

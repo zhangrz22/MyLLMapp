@@ -51,7 +51,7 @@ android {
         buildConfig = true
         viewBinding = true
     }
-    
+
     packagingOptions {
         exclude("/META-INF/DEPENDENCIES")
         exclude("/META-INF/LICENSE")
@@ -99,11 +99,20 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 
-    implementation("com.openai:openai-java:0.31.0") {
-        // 排除问题依赖
-        exclude(group = "com.google.errorprone", module = "error_prone_annotations")
-    }
-    
+    // 移除 OpenAI SDK
+    // implementation("com.openai:openai-java:0.31.0") {
+    //     // 排除问题依赖
+    //     exclude(group = "com.google.errorprone", module = "error_prone_annotations")
+    // }
+
+    // 添加阿里云通义千问 DashScope SDK
+    implementation("com.alibaba:dashscope-sdk-java:2.20.0") // 请替换为最新版本
+
     // 添加兼容版本的error_prone_annotations
     implementation("com.google.errorprone:error_prone_annotations:2.15.0")
+
+    // 可能需要添加的其他依赖
+    implementation("org.apache.httpcomponents:httpclient:4.5.14")
+    implementation("org.apache.httpcomponents:httpcore:4.4.16")
+    implementation("commons-logging:commons-logging:1.2")
 }

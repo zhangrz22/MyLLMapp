@@ -27,10 +27,10 @@ import java.util.concurrent.atomic.AtomicLong; // For handling conversation ID a
 // 导入必要的类
 import com.example.myllmapp.api.ApiKeyManager;
 import com.example.myllmapp.api.DashScopeClient;
-import com.openai.client.OpenAIClient;
-import com.openai.models.ChatCompletion;
-import com.openai.models.ChatCompletionCreateParams;
-import com.openai.models.ChatCompletionAssistantMessageParam;
+import com.alibaba.dashscope.aigc.generation.GenerationResult;
+import com.alibaba.dashscope.exception.ApiException;
+import com.alibaba.dashscope.exception.InputRequiredException;
+import com.alibaba.dashscope.exception.NoApiKeyException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -202,10 +202,11 @@ public class ChatActivity extends AppCompatActivity {
             if (conversationId == -1L) {
                 // 获取当前选择的模型
                 String selectedModel = SettingsActivity.getSelectedModel(this);
-                Log.i("selected model:", selectedModel);
-                
-                // 创建带有模型信息的新对话
-                Conversation newConversation = new Conversation(System.currentTimeMillis(), selectedModel);
+                boolean defaultEnableSearch = getSharedPreferences(SettingsActivity.PREF_NAME, MODE_PRIVATE)
+                        .getBoolean(SettingsActivity.PREF_ENABLE_SEARCH, false);
+                Log.i(TAG, "新建对话时enableSearch默认值: " + defaultEnableSearch);
+                // 创建带有模型信息和enableSearch的新对话
+                Conversation newConversation = new Conversation(System.currentTimeMillis(), selectedModel, defaultEnableSearch);
                 long newId = conversationDao.insertConversation(newConversation);
                 if (newId != -1L) { // Check if insert was successful / 检查插入是否成功
                     currentConversationId.set(newId); // Update the ID / 更新 ID
@@ -267,50 +268,32 @@ public class ChatActivity extends AppCompatActivity {
                 List<Message> historyMessages = messageDao.getRecentMessagesForConversation(
                         conversationId, MAX_HISTORY_MESSAGES);
                 
-                // 3. 获取当前对话使用的模型
+                // 3. 获取当前对话使用的模型和联网搜索开关
                 Conversation currentConversation = conversationDao.getConversationById(conversationId);
                 // 如果对话没有指定模型，使用设置中的模型
                 String modelToUse = (currentConversation != null && currentConversation.model != null) 
                         ? currentConversation.model 
                         : SettingsActivity.getSelectedModel(this);
+                boolean enableSearch = (currentConversation != null) && currentConversation.isEnableSearch();
                 
-                // 3.1 创建DashScope客户端
-                DashScopeClient dashScopeClient = DashScopeClient.getInstance(apiKey);
-                OpenAIClient client = dashScopeClient.getClient();
+                // 4. 转换消息格式
+                List<com.alibaba.dashscope.common.Message> dashScopeMessages = DashScopeClient.convertToDashScopeMessages(historyMessages, enableSearch);
 
-                // 4. 构建参数
-                ChatCompletionCreateParams.Builder paramsBuilder = ChatCompletionCreateParams.builder()
-                        .model(modelToUse); // 使用当前对话的模型
 
-                // 4.1 添加系统消息
-                paramsBuilder.addSystemMessage("你是一个友好、有帮助的助手，能以用户使用的语言回答用户的问题。");
-
-                // 4.2 添加历史消息
-                for (Message msg : historyMessages) {
-                    if (msg.sender == Sender.USER) {
-                        paramsBuilder.addUserMessage(msg.text);
-                    } else {
-                        paramsBuilder.addMessage(
-                                ChatCompletionAssistantMessageParam.builder()
-                                .content(msg.text)
-                                .build());
-                    }
-                }
-
-                // 4.3 确保最新消息在列表中
-                if (historyMessages.isEmpty() ||
-                        historyMessages.get(historyMessages.size() - 1).sender != Sender.USER) {
-                    paramsBuilder.addUserMessage(inputText);
-                }
-
-                final ChatCompletionCreateParams params = paramsBuilder.build();
-                final String finalModelToUse = modelToUse;
 
                 // 5. 创建一个新线程来执行API调用，因为这可能会阻塞
+                final String finalApiKey = apiKey;
+                final List<com.alibaba.dashscope.common.Message> finalDashScopeMessages = dashScopeMessages;
+                final boolean finalEnableSearch = enableSearch;
                 new Thread(() -> {
                     try {
                         // 执行API调用
-                        ChatCompletion chatCompletion = client.chat().completions().create(params);
+                        // 打印请求内容到logcat
+                        Log.i(TAG, "LLM API Request: model=" + modelToUse + ", enableSearch=" + finalEnableSearch);
+                        for (com.alibaba.dashscope.common.Message msg : dashScopeMessages) {
+                            Log.i(TAG, "Message: role=" + msg.getRole() + ", content=" + msg.getContent());
+                        }
+                        GenerationResult result = DashScopeClient.callWithMessages(finalApiKey, finalDashScopeMessages, finalEnableSearch);
 
                         // 处理响应
                         AppDatabase.databaseWriteExecutor.execute(() -> {
@@ -318,8 +301,7 @@ public class ChatActivity extends AppCompatActivity {
 
                             try {
                                 // 获取回复内容
-                                String llmResponseText = chatCompletion.choices().get(0).message().content()
-                                        .orElse("无返回内容");
+                                String llmResponseText = result.getOutput().getChoices().get(0).getMessage().getContent();
 
                                 // 创建并插入LLM消息到数据库
                                 Message llmMessage = new Message(
@@ -330,7 +312,7 @@ public class ChatActivity extends AppCompatActivity {
                                 );
                                 messageDao.insertMessage(llmMessage);
 
-                                Log.d(TAG, "Inserted LLM response using model: " + finalModelToUse);
+                                Log.d(TAG, "Inserted LLM response using model: " + modelToUse);
 
                                 // 更新UI
                                 runOnUiThread(this::scrollToBottom);
@@ -339,7 +321,7 @@ public class ChatActivity extends AppCompatActivity {
                                 handleApiError("解析响应失败: " + e.getMessage());
                             }
                         });
-                    } catch (Exception e) {
+                    } catch (NoApiKeyException | ApiException | InputRequiredException e) {
                         // 处理API调用异常
                         AppDatabase.databaseWriteExecutor.execute(() -> {
                             isLoadingResponse = false;

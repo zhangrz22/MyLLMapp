@@ -24,4 +24,9 @@
     <string name="model_settings">模型设置</string>
     <string name="select_model">选择AI模型</string>
     <string name="model_description">不同模型具有不同的能力和特点，请根据需要选择</string>
+
+    <!-- 联网搜索设置 -->
+    <string name="search_settings">搜索设置</string>
+    <string name="enable_network_search">启用联网搜索</string>
+    <string name="network_search_description">开启后，AI将能够搜索网络获取最新信息</string>
 </resources>

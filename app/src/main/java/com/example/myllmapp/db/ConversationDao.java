@@ -51,6 +51,14 @@ public interface ConversationDao {
     @Query("UPDATE conversations SET model = :model WHERE id = :id")
     void updateConversationModel(long id, String model);
 
+    /**
+     * 更新对话的联网搜索设置
+     * @param id 对话ID
+     * @param enableSearch 是否启用联网搜索
+     */
+    @Query("UPDATE conversations SET enableSearch = :enableSearch WHERE id = :id")
+    void updateConversationSearch(long id, boolean enableSearch);
+
     // --- 新增方法 ---
     /**
      * Deletes a conversation by its ID.

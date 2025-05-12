@@ -25,6 +25,7 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String PREF_NAME = "MyLLMAppSettings";
     public static final String PREF_USE_STREAMING = "use_streaming";
     public static final String PREF_MODEL = "selected_model";
+    public static final String PREF_ENABLE_SEARCH = "enable_search";
     public static final String EXTRA_CONVERSATION_ID = "conversation_id";
     
     // 定义支持的模型
@@ -80,6 +81,28 @@ public class SettingsActivity extends AppCompatActivity {
             editor.putBoolean(PREF_USE_STREAMING, isChecked);
             editor.apply();
             
+            // 显示保存成功提示
+            Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show();
+        });
+
+        // 获取联网搜索开关
+        SwitchCompat switchNetworkSearch = binding.switchNetworkSearch;
+        
+        // 设置开关状态为当前配置
+        boolean enableSearch = sharedPreferences.getBoolean(PREF_ENABLE_SEARCH, false);
+        switchNetworkSearch.setChecked(enableSearch);
+        
+        // 设置开关变化监听器
+        switchNetworkSearch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            // 保存新设置
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putBoolean(PREF_ENABLE_SEARCH, isChecked);
+            editor.apply();
+
+            // 如果有当前对话，更新其联网搜索设置
+            if (currentConversationId != -1) {
+                updateCurrentConversationSearch(isChecked);
+            }
             // 显示保存成功提示
             Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show();
         });
@@ -150,6 +173,19 @@ public class SettingsActivity extends AppCompatActivity {
             AppDatabase.databaseWriteExecutor.execute(() -> {
                 AppDatabase db = AppDatabase.getDatabase(getApplicationContext());
                 db.conversationDao().updateConversationModel(currentConversationId, modelId);
+            });
+        }
+    }
+    
+    /**
+     * 更新当前对话的联网搜索设置
+     * @param enableSearch 是否启用联网搜索
+     */
+    private void updateCurrentConversationSearch(boolean enableSearch) {
+        if (currentConversationId != -1) {
+            AppDatabase.databaseWriteExecutor.execute(() -> {
+                AppDatabase db = AppDatabase.getDatabase(getApplicationContext());
+                db.conversationDao().updateConversationSearch(currentConversationId, enableSearch);
             });
         }
     }

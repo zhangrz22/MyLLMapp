@@ -19,6 +19,9 @@ public class Conversation {
     // 对话使用的模型
     public String model;
 
+    // 是否启用联网搜索
+    public boolean enableSearch;
+
     // --- 新增字段 ---
     /**
      * Temporary field to hold the title to be displayed in the history list.
@@ -65,6 +68,20 @@ public class Conversation {
         this.model = model;
     }
 
+    /**
+     * Constructor with model and enableSearch parameters.
+     * 带有model和enableSearch参数的构造函数。
+     * @param startTime Timestamp when the conversation started. / 对话开始的时间戳。
+     * @param model The model used for this conversation. / 此对话使用的模型。
+     * @param enableSearch Whether to enable search for this conversation. / 此对话是否启用联网搜索。
+     */
+    @Ignore
+    public Conversation(long startTime, String model, boolean enableSearch) {
+        this.startTime = startTime;
+        this.model = model;
+        this.enableSearch = enableSearch;
+    }
+
     // --- 新增 Getter/Setter for displayTitle ---
     public String getDisplayTitle() {
         return displayTitle;
@@ -99,6 +116,14 @@ public class Conversation {
     
     public void setModel(String model) {
         this.model = model;
+    }
+
+    public boolean isEnableSearch() {
+        return enableSearch;
+    }
+
+    public void setEnableSearch(boolean enableSearch) {
+        this.enableSearch = enableSearch;
     }
     // --- 结束保留 ---
 }

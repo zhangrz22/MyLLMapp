@@ -20,7 +20,7 @@ import java.util.concurrent.Executors;
  * The Room database for the application.
  * 应用程序的 Room 数据库。
  */
-@Database(entities = {Conversation.class, Message.class}, version = 2, exportSchema = false)
+@Database(entities = {Conversation.class, Message.class}, version = 3, exportSchema = false)
 @TypeConverters({Converters.class}) // Register the Converters class / 注册 Converters 类
 public abstract class AppDatabase extends RoomDatabase {
 
@@ -38,6 +38,15 @@ public abstract class AppDatabase extends RoomDatabase {
         public void migrate(@NonNull SupportSQLiteDatabase database) {
             // 添加model列，默认值为"qwen-plus-latest"
             database.execSQL("ALTER TABLE conversations ADD COLUMN model TEXT DEFAULT 'qwen-plus'");
+        }
+    };
+
+    // 数据库迁移：从版本2到版本3，添加 enableSearch 字段
+    public static final Migration MIGRATION_2_3 = new Migration(2, 3) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            // 添加enableSearch列，默认值为false
+            database.execSQL("ALTER TABLE conversations ADD COLUMN enableSearch INTEGER NOT NULL DEFAULT 0");
         }
     };
 
@@ -60,7 +69,7 @@ public abstract class AppDatabase extends RoomDatabase {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, "llm_app_database")
                             // 添加数据库迁移
-                            .addMigrations(MIGRATION_1_2)
+                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                             .build();
                 }
             }
