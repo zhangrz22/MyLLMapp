@@ -91,19 +91,33 @@ public class SettingsActivity extends AppCompatActivity {
         // 设置开关状态为当前配置
         boolean enableSearch = sharedPreferences.getBoolean(PREF_ENABLE_SEARCH, false);
         switchNetworkSearch.setChecked(enableSearch);
+
+        // 根据当前模型初始化enable_search开关的可用性
+        String currentModel = sharedPreferences.getString(PREF_MODEL, "qwen-plus");
+        if ("deepseek-v3".equals(currentModel)) {
+            switchNetworkSearch.setChecked(false);
+            switchNetworkSearch.setEnabled(false);
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putBoolean(PREF_ENABLE_SEARCH, false);
+            editor.apply();
+        } else {
+            switchNetworkSearch.setEnabled(true);
+        }
         
         // 设置开关变化监听器
         switchNetworkSearch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            // 保存新设置
+            String modelNow = sharedPreferences.getString(PREF_MODEL, "qwen-plus");
+            if ("deepseek-v3".equals(modelNow)) {
+                buttonView.setChecked(false);
+                switchNetworkSearch.setEnabled(false);
+                return;
+            }
             SharedPreferences.Editor editor = sharedPreferences.edit();
             editor.putBoolean(PREF_ENABLE_SEARCH, isChecked);
             editor.apply();
-
-            // 如果有当前对话，更新其联网搜索设置
             if (currentConversationId != -1) {
                 updateCurrentConversationSearch(isChecked);
             }
-            // 显示保存成功提示
             Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show();
         });
     }
@@ -144,16 +158,25 @@ public class SettingsActivity extends AppCompatActivity {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String selectedModelName = (String) parent.getItemAtPosition(position);
                 String selectedModelId = SUPPORTED_MODELS.get(selectedModelName);
-                
-                // 保存选中的模型ID
                 SharedPreferences.Editor editor = sharedPreferences.edit();
                 editor.putString(PREF_MODEL, selectedModelId);
                 editor.apply();
-                
-                // 如果有当前对话，更新其模型
+                // 联动enable_search开关
+                if ("deepseek-v3".equals(selectedModelId)) {
+                    binding.switchNetworkSearch.setChecked(false);
+                    binding.switchNetworkSearch.setEnabled(false);
+                    SharedPreferences.Editor e2 = sharedPreferences.edit();
+                    e2.putBoolean(PREF_ENABLE_SEARCH, false);
+                    e2.apply();
+                    if (currentConversationId != -1) {
+                        updateCurrentConversationSearch(false);
+                    }
+                } else {
+                    binding.switchNetworkSearch.setEnabled(true);
+                    boolean enableSearch = sharedPreferences.getBoolean(PREF_ENABLE_SEARCH, false);
+                    binding.switchNetworkSearch.setChecked(enableSearch);
+                }
                 updateCurrentConversationModel(selectedModelId);
-                
-                // 显示保存成功提示
                 Toast.makeText(SettingsActivity.this, R.string.settings_saved, Toast.LENGTH_SHORT).show();
             }
 

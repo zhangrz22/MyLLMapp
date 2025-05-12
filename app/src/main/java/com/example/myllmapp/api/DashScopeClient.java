@@ -34,17 +34,13 @@ public class DashScopeClient {
         return instance;
     }
 
-    public String getDefaultModel() {
-        return DEFAULT_MODEL;
-    }
-
     /**
      * 调用 DashScope 生成接口，支持 enableSearch
      */
 
-    public static GenerationResult callWithMessages(String apiKey, List<Message> messages, boolean enableSearch)
+    public static GenerationResult callWithMessages(String model, String apiKey, List<Message> messages, boolean enableSearch)
             throws ApiException, NoApiKeyException, InputRequiredException {
-        String model = DEFAULT_MODEL;
+
         for (Message msg : messages) {
             if (msg.getRole().equals(Role.SYSTEM.getValue()) && msg.getContent().contains("model:")) {
                 // 可扩展：从system prompt中提取model
@@ -70,12 +66,6 @@ public class DashScopeClient {
                 .searchOptions(searchOptions)
                 .build();
         return gen.call(param);
-    }
-
-    // 保留原有方法，默认不启用联网搜索
-    public static GenerationResult callWithMessages(String apiKey, List<Message> messages)
-            throws ApiException, NoApiKeyException, InputRequiredException {
-        return callWithMessages(apiKey, messages, false);
     }
 
     /**

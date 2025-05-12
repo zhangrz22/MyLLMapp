@@ -204,6 +204,10 @@ public class ChatActivity extends AppCompatActivity {
                 String selectedModel = SettingsActivity.getSelectedModel(this);
                 boolean defaultEnableSearch = getSharedPreferences(SettingsActivity.PREF_NAME, MODE_PRIVATE)
                         .getBoolean(SettingsActivity.PREF_ENABLE_SEARCH, false);
+                // deepseek-v3模型下强制关闭enableSearch
+                if ("deepseek-v3".equals(selectedModel)) {
+                    defaultEnableSearch = false;
+                }
                 Log.i(TAG, "新建对话时enableSearch默认值: " + defaultEnableSearch);
                 // 创建带有模型信息和enableSearch的新对话
                 Conversation newConversation = new Conversation(System.currentTimeMillis(), selectedModel, defaultEnableSearch);
@@ -275,6 +279,10 @@ public class ChatActivity extends AppCompatActivity {
                         ? currentConversation.model 
                         : SettingsActivity.getSelectedModel(this);
                 boolean enableSearch = (currentConversation != null) && currentConversation.isEnableSearch();
+                // deepseek-v3模型下强制关闭enableSearch
+                if ("deepseek-v3".equals(modelToUse)) {
+                    enableSearch = false;
+                }
                 
                 // 4. 转换消息格式
                 List<com.alibaba.dashscope.common.Message> dashScopeMessages = DashScopeClient.convertToDashScopeMessages(historyMessages, enableSearch);
@@ -293,7 +301,7 @@ public class ChatActivity extends AppCompatActivity {
                         for (com.alibaba.dashscope.common.Message msg : dashScopeMessages) {
                             Log.i(TAG, "Message: role=" + msg.getRole() + ", content=" + msg.getContent());
                         }
-                        GenerationResult result = DashScopeClient.callWithMessages(finalApiKey, finalDashScopeMessages, finalEnableSearch);
+                        GenerationResult result = DashScopeClient.callWithMessages(modelToUse, finalApiKey, finalDashScopeMessages, finalEnableSearch);
 
                         // 处理响应
                         AppDatabase.databaseWriteExecutor.execute(() -> {
