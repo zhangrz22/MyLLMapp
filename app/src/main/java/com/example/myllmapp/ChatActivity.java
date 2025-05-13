@@ -6,6 +6,7 @@ import android.text.TextUtils;
 import android.util.Log; // For logging / 用于日志记录
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View; // 添加View的导入
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -35,7 +36,7 @@ import com.alibaba.dashscope.exception.NoApiKeyException;
 import java.util.ArrayList;
 import java.util.List;
 
-
+import io.reactivex.Flowable;
 
 /**
  * ChatActivity handles the conversation interaction between the user and the LLM.
@@ -154,6 +155,23 @@ public class ChatActivity extends AppCompatActivity {
         adapter = new MessageAdapter();
         layoutManager = new LinearLayoutManager(this);
         layoutManager.setStackFromEnd(true); // Start scrolled to the bottom / 从底部开始滚动
+        
+        // 优化RecyclerView性能
+        binding.recyclerViewMessages.setHasFixedSize(false); // 消息项大小不固定
+        binding.recyclerViewMessages.setItemViewCacheSize(20); // 增加缓存大小
+        binding.recyclerViewMessages.setDrawingCacheEnabled(true);
+        binding.recyclerViewMessages.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_HIGH);
+        
+        // 设置预取和缓存机制
+        RecyclerView.RecycledViewPool viewPool = new RecyclerView.RecycledViewPool();
+        viewPool.setMaxRecycledViews(MessageAdapter.VIEW_TYPE_USER, 10);
+        viewPool.setMaxRecycledViews(MessageAdapter.VIEW_TYPE_LLM, 10);
+        binding.recyclerViewMessages.setRecycledViewPool(viewPool);
+        
+        // 启用预取
+        binding.recyclerViewMessages.setItemAnimator(null); // 流式更新不需要动画，禁用可提高性能
+        binding.recyclerViewMessages.getRecycledViewPool().setMaxRecycledViews(MessageAdapter.VIEW_TYPE_LLM, 20);
+        
         binding.recyclerViewMessages.setAdapter(adapter);
         binding.recyclerViewMessages.setLayoutManager(layoutManager);
 
@@ -163,6 +181,15 @@ public class ChatActivity extends AppCompatActivity {
             public void onItemRangeInserted(int positionStart, int itemCount) {
                 super.onItemRangeInserted(positionStart, itemCount);
                 scrollToBottom();
+            }
+            
+            @Override
+            public void onItemRangeChanged(int positionStart, int itemCount) {
+                super.onItemRangeChanged(positionStart, itemCount);
+                // 如果更新的是最后一项并且在加载响应，则滚动到底部
+                if (positionStart + itemCount == adapter.getItemCount() && isLoadingResponse) {
+                    scrollToBottom();
+                }
             }
         });
     }
@@ -287,48 +314,30 @@ public class ChatActivity extends AppCompatActivity {
                 // 4. 转换消息格式
                 List<com.alibaba.dashscope.common.Message> dashScopeMessages = DashScopeClient.convertToDashScopeMessages(historyMessages, enableSearch);
 
+                // 5. 检查是否使用流式输出
+                boolean useStreaming = SettingsActivity.useStreaming(this);
+                
+                // 打印请求内容到logcat
+                Log.i(TAG, "LLM API Request: model=" + modelToUse + ", enableSearch=" + enableSearch + ", useStreaming=" + useStreaming);
+                for (com.alibaba.dashscope.common.Message msg : dashScopeMessages) {
+                    Log.i(TAG, "Message: role=" + msg.getRole() + ", content=" + msg.getContent());
+                }
 
-
-                // 5. 创建一个新线程来执行API调用，因为这可能会阻塞
+                // 6. 创建一个新线程来执行API调用，因为这可能会阻塞
                 final String finalApiKey = apiKey;
                 final List<com.alibaba.dashscope.common.Message> finalDashScopeMessages = dashScopeMessages;
                 final boolean finalEnableSearch = enableSearch;
+                final String finalModelToUse = modelToUse;
+                
                 new Thread(() -> {
                     try {
-                        // 执行API调用
-                        // 打印请求内容到logcat
-                        Log.i(TAG, "LLM API Request: model=" + modelToUse + ", enableSearch=" + finalEnableSearch);
-                        for (com.alibaba.dashscope.common.Message msg : dashScopeMessages) {
-                            Log.i(TAG, "Message: role=" + msg.getRole() + ", content=" + msg.getContent());
+                        if (useStreaming) {
+                            // 使用流式输出模式
+                            handleStreamingResponse(finalModelToUse, finalApiKey, finalDashScopeMessages, finalEnableSearch, conversationId);
+                        } else {
+                            // 使用非流式输出模式
+                            handleNonStreamingResponse(finalModelToUse, finalApiKey, finalDashScopeMessages, finalEnableSearch, conversationId);
                         }
-                        GenerationResult result = DashScopeClient.callWithMessages(modelToUse, finalApiKey, finalDashScopeMessages, finalEnableSearch);
-
-                        // 处理响应
-                        AppDatabase.databaseWriteExecutor.execute(() -> {
-                            isLoadingResponse = false;
-
-                            try {
-                                // 获取回复内容
-                                String llmResponseText = result.getOutput().getChoices().get(0).getMessage().getContent();
-
-                                // 创建并插入LLM消息到数据库
-                                Message llmMessage = new Message(
-                                        conversationId,
-                                        llmResponseText,
-                                        Sender.LLM,
-                                        System.currentTimeMillis()
-                                );
-                                messageDao.insertMessage(llmMessage);
-
-                                Log.d(TAG, "Inserted LLM response using model: " + modelToUse);
-
-                                // 更新UI
-                                runOnUiThread(this::scrollToBottom);
-
-                            } catch (Exception e) {
-                                handleApiError("解析响应失败: " + e.getMessage());
-                            }
-                        });
                     } catch (NoApiKeyException | ApiException | InputRequiredException e) {
                         // 处理API调用异常
                         AppDatabase.databaseWriteExecutor.execute(() -> {
@@ -345,6 +354,146 @@ public class ChatActivity extends AppCompatActivity {
                 handleApiError("发生错误: " + e.getMessage());
             }
         });
+    }
+    
+    /**
+     * 处理非流式响应
+     */
+    private void handleNonStreamingResponse(String modelToUse, String apiKey, 
+                                          List<com.alibaba.dashscope.common.Message> dashScopeMessages,
+                                          boolean enableSearch, long conversationId) 
+            throws NoApiKeyException, ApiException, InputRequiredException {
+        
+        // 执行API调用
+        GenerationResult result = DashScopeClient.callWithMessages(modelToUse, apiKey, dashScopeMessages, enableSearch);
+
+        // 处理响应
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            isLoadingResponse = false;
+
+            try {
+                // 获取回复内容
+                String llmResponseText = result.getOutput().getChoices().get(0).getMessage().getContent();
+
+                // 创建并插入LLM消息到数据库
+                Message llmMessage = new Message(
+                        conversationId,
+                        llmResponseText,
+                        Sender.LLM,
+                        System.currentTimeMillis()
+                );
+                messageDao.insertMessage(llmMessage);
+
+                Log.d(TAG, "Inserted LLM response using model: " + modelToUse);
+
+                // 更新UI
+                runOnUiThread(this::scrollToBottom);
+
+            } catch (Exception e) {
+                handleApiError("解析响应失败: " + e.getMessage());
+            }
+        });
+    }
+    
+    /**
+     * 处理流式响应
+     */
+    private void handleStreamingResponse(String modelToUse, String apiKey, 
+                                       List<com.alibaba.dashscope.common.Message> dashScopeMessages,
+                                       boolean enableSearch, long conversationId) 
+            throws NoApiKeyException, ApiException, InputRequiredException {
+        
+        // 创建初始的空LLM消息用于流式输出
+        final Message initialStreamingMessage = new Message(
+                conversationId,
+                Sender.LLM,
+                System.currentTimeMillis(),
+                true
+        );
+        
+        // 在UI线程上添加初始流式消息
+        runOnUiThread(() -> {
+            adapter.addOrUpdateStreamingMessage(initialStreamingMessage);
+            scrollToBottom();
+        });
+        
+        StringBuilder fullResponseBuilder = new StringBuilder();
+        
+        try {
+            // 执行流式API调用
+            Flowable<GenerationResult> resultFlowable = DashScopeClient.streamCallWithMessages(
+                    modelToUse, apiKey, dashScopeMessages, enableSearch, 
+                    generationResult -> {
+                        try {
+                            // 获取增量响应
+                            String incrementalContent = generationResult.getOutput().getChoices().get(0).getMessage().getContent();
+                            fullResponseBuilder.append(incrementalContent);
+                            
+                            // 更新UI上的流式消息
+                            String currentFullText = fullResponseBuilder.toString();
+                            runOnUiThread(() -> {
+                                adapter.updateStreamingMessageText(currentFullText);
+                                
+                                // 延迟执行滚动，避免频繁滚动引起的性能问题
+                                if (fullResponseBuilder.length() % 50 == 0) {  // 每累积约50个字符滚动一次
+                                    scrollToBottom();
+                                }
+                            });
+                            
+                            Log.d(TAG, "Stream increment: " + incrementalContent);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error processing stream increment", e);
+                        }
+                    });
+            
+            // 等待流完成
+            resultFlowable.blockingSubscribe();
+            
+            // 流式输出完成后，将完整响应保存到数据库
+            AppDatabase.databaseWriteExecutor.execute(() -> {
+                isLoadingResponse = false;
+                try {
+                    String finalResponse = fullResponseBuilder.toString();
+                    // 创建最终消息
+                    Message finalMessage = new Message(
+                            conversationId,
+                            finalResponse,
+                            Sender.LLM,
+                            System.currentTimeMillis()
+                    );
+                    
+                    // 更新UI并完成流式消息
+                    runOnUiThread(() -> {
+                        adapter.finishStreamingMessage(finalMessage);
+                        
+                        // 最后一次滚动，确保显示完整内容
+                        scrollToBottom();
+                    });
+                    
+                    // 保存到数据库
+                    messageDao.insertMessage(finalMessage);
+                    Log.d(TAG, "Inserted streamed LLM response using model: " + modelToUse);
+                    
+                } catch (Exception e) {
+                    handleApiError("处理流式响应失败: " + e.getMessage());
+                }
+            });
+            
+        } catch (Exception e) {
+            isLoadingResponse = false;
+            handleApiError("流式API调用失败: " + e.getMessage());
+            
+            // 尝试移除流式消息
+            runOnUiThread(() -> {
+                Message errorMessage = new Message(
+                        conversationId,
+                        "获取回复时出错",
+                        Sender.LLM,
+                        System.currentTimeMillis()
+                );
+                adapter.finishStreamingMessage(errorMessage);
+            });
+        }
     }
 
     /**
@@ -378,9 +527,24 @@ public class ChatActivity extends AppCompatActivity {
         if (adapter != null && adapter.getItemCount() > 0) {
             // Use post to ensure scroll happens after layout calculation
             // 使用 post 确保滚动在布局计算之后发生
-            binding.recyclerViewMessages.post(() ->
-                    layoutManager.smoothScrollToPosition(binding.recyclerViewMessages, null, adapter.getItemCount() - 1)
-            );
+            binding.recyclerViewMessages.post(() -> {
+                try {
+                    // 对于流式输出，使用带偏移的滚动以确保消息完全可见
+                    if (isLoadingResponse) {
+                        // 使用即时滚动避免卡顿
+                        int lastPos = adapter.getItemCount() - 1;
+                        // 设置偏移量为0，确保消息在最底部完全可见
+                        layoutManager.scrollToPositionWithOffset(lastPos, 0);
+                    } else {
+                        // 非流式情况使用平滑滚动提供更好的用户体验
+                        binding.recyclerViewMessages.smoothScrollToPosition(adapter.getItemCount() - 1);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "滚动错误", e);
+                    // 如果平滑滚动失败，尝试直接滚动
+                    layoutManager.scrollToPosition(adapter.getItemCount() - 1);
+                }
+            });
         }
     }
 

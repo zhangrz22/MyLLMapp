@@ -14,6 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
+import android.util.Log;
+import io.reactivex.Flowable;
+import io.reactivex.functions.Consumer;
 
 
 public class DashScopeClient {
@@ -37,7 +40,6 @@ public class DashScopeClient {
     /**
      * 调用 DashScope 生成接口，支持 enableSearch
      */
-
     public static GenerationResult callWithMessages(String model, String apiKey, List<Message> messages, boolean enableSearch)
             throws ApiException, NoApiKeyException, InputRequiredException {
 
@@ -66,6 +68,53 @@ public class DashScopeClient {
                 .searchOptions(searchOptions)
                 .build();
         return gen.call(param);
+    }
+    
+    /**
+     * 流式调用DashScope生成接口，支持enableSearch
+     * @param model 模型名称
+     * @param apiKey API密钥
+     * @param messages 消息列表
+     * @param enableSearch 是否启用搜索
+     * @param messageHandler 处理流式消息的回调
+     * @return Flowable流对象
+     */
+    public static Flowable<GenerationResult> streamCallWithMessages(
+            String model, 
+            String apiKey, 
+            List<Message> messages, 
+            boolean enableSearch,
+            Consumer<GenerationResult> messageHandler)
+            throws ApiException, NoApiKeyException, InputRequiredException {
+        
+        Generation gen = new Generation();
+        
+        SearchOptions searchOptions = SearchOptions.builder()
+            .enableSource(true)
+            .enableCitation(true)
+            .citationFormat("[ref_<number>]")
+            .forcedSearch(false)
+            .searchStrategy("standard")
+            .build();
+            
+        GenerationParam param = GenerationParam.builder()
+                .apiKey(apiKey)
+                .model(model)
+                .messages(messages)
+                .resultFormat(GenerationParam.ResultFormat.MESSAGE)
+                .enableSearch(enableSearch)
+                .searchOptions(searchOptions)
+                .incrementalOutput(true)  // 启用增量输出
+                .build();
+                
+        Flowable<GenerationResult> result = gen.streamCall(param);
+        
+        // 处理流式结果
+        if (messageHandler != null) {
+            return result.doOnNext(messageHandler);
+        }
+        
+        return result;
     }
 
     /**

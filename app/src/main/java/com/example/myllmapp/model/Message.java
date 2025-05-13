@@ -6,6 +6,7 @@ import androidx.room.ForeignKey;
 import androidx.room.Index;
 import androidx.room.PrimaryKey;
 import androidx.room.TypeConverters; // Import if using TypeConverters
+import androidx.room.Ignore;
 
 import com.example.myllmapp.db.Converters;
 
@@ -35,11 +36,26 @@ public class Message {
 
     public long timestamp; // When the message was sent/received / 消息发送/接收的时间戳
 
-    // Constructor
+    // 用于流式输出的临时标志，不存入数据库
+    @Ignore
+    public boolean isStreaming = false;
+    
+    // 标准构造函数
     public Message(long conversationId, String text, Sender sender, long timestamp) {
         this.conversationId = conversationId;
         this.text = text;
         this.sender = sender;
         this.timestamp = timestamp;
+        this.isStreaming = false;
+    }
+    
+    // 创建空的LLM消息用于流式输出
+    @Ignore
+    public Message(long conversationId, Sender sender, long timestamp, boolean isStreaming) {
+        this.conversationId = conversationId;
+        this.text = "";
+        this.sender = sender;
+        this.timestamp = timestamp;
+        this.isStreaming = isStreaming;
     }
 }

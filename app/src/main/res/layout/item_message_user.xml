@@ -16,11 +16,24 @@
         android:background="@drawable/bg_message_user"
         android:textColor="@color/message_user_text"
         android:textAppearance="?attr/textAppearanceBody1"
+        android:textIsSelectable="true"
+        android:lineSpacingMultiplier="1.2"
+        android:breakStrategy="high_quality"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:minWidth="40dp"
+        android:maxWidth="300dp"
+        android:gravity="start|center_vertical"
+        android:autoSizeTextType="none"
+        app:layout_constrainedWidth="true"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintWidth_max="wrap"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintWidth_default="wrap"
         app:layout_constraintHorizontal_bias="1.0"
-        tools:text="这是用户发送的消息，它可能很长并且会换行到多行。" />
+        tools:text="短消息" />
 
     <TextView
         android:id="@+id/textViewMessageTimestamp"
