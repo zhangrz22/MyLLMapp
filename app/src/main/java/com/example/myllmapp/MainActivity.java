@@ -125,11 +125,11 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
                 & Configuration.UI_MODE_NIGHT_MASK;
         
         if (currentNightMode == Configuration.UI_MODE_NIGHT_YES) {
-            // 当前是夜间模式，显示太阳图标
-            btnToggleNightMode.setImageResource(R.drawable.ic_sun);
-        } else {
-            // 当前是日间模式，显示月亮图标
+            // 当前是夜间模式，显示月亮图标
             btnToggleNightMode.setImageResource(R.drawable.ic_moon);
+        } else {
+            // 当前是日间模式，显示太阳图标
+            btnToggleNightMode.setImageResource(R.drawable.ic_sun);
         }
     }
 
