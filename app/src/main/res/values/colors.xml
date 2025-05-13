@@ -4,29 +4,29 @@
     <color name="white">#FFFFFFFF</color>
     
     <!-- 主题颜色 -->
-    <color name="primary">#6200EE</color>
-    <color name="primary_dark">#3700B3</color>
-    <color name="primary_variant">#7E57C2</color>
-    <color name="secondary">#03DAC6</color>
-    <color name="secondary_dark">#018786</color>
+    <color name="primary">#4F6BF7</color>
+    <color name="primary_dark">#3550D8</color>
+    <color name="primary_variant">#738EFF</color>
+    <color name="secondary">#24C5D8</color>
+    <color name="secondary_dark">#0C9DAF</color>
     
     <!-- 消息气泡颜色 -->
-    <color name="message_user_background">#6200EE</color>
+    <color name="message_user_background">#4F6BF7</color>
     <color name="message_user_text">#FFFFFF</color>
-    <color name="message_llm_background">#F3F3F3</color>
-    <color name="message_llm_text">#212121</color>
+    <color name="message_llm_background">#F0F3FF</color>
+    <color name="message_llm_text">#1A1F36</color>
     
     <!-- 背景颜色 -->
-    <color name="background">#FFFFFF</color>
+    <color name="background">#FAFCFF</color>
     <color name="surface">#FFFFFF</color>
-    <color name="input_background">#F5F5F5</color>
+    <color name="input_background">#F5F8FF</color>
     
     <!-- 文本颜色 -->
-    <color name="text_primary">#212121</color>
-    <color name="text_secondary">#757575</color>
-    <color name="text_hint">#9E9E9E</color>
+    <color name="text_primary">#1A1F36</color>
+    <color name="text_secondary">#5A617C</color>
+    <color name="text_hint">#8990A7</color>
     
     <!-- 辅助颜色 -->
-    <color name="divider">#E0E0E0</color>
-    <color name="ripple">#33000000</color>
+    <color name="divider">#E8EFFF</color>
+    <color name="ripple">#224F6BF7</color>
 </resources>

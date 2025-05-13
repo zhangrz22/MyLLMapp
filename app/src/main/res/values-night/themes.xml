@@ -1,7 +1,23 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- 夜间模式主题 -->
     <style name="Base.Theme.MyLLMapp" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <!-- 只覆盖需要修改的颜色属性 -->
+        <item name="colorPrimary">#738EFF</item>
+        <item name="colorPrimaryVariant">#3550D8</item>
+        <item name="colorSecondary">#24C5D8</item>
+        <item name="colorSecondaryVariant">#0C9DAF</item>
+        
+        <!-- 背景颜色 -->
+        <item name="android:colorBackground">@color/background</item>
+        <item name="colorSurface">@color/surface</item>
+        
+        <!-- 文本颜色 -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+        
+        <!-- 状态栏和导航栏 -->
+        <item name="android:statusBarColor">#3550D8</item>
+        <item name="android:navigationBarColor">@color/background</item>
     </style>
 </resources>

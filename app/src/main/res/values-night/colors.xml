@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 夜间模式的消息气泡颜色 -->
+    <color name="message_user_background">#738EFF</color>
+    <color name="message_user_text">#FFFFFF</color>
+    <color name="message_llm_background">#2B334F</color>
+    <color name="message_llm_text">#E8EFFF</color>
+    
+    <!-- 夜间模式的背景颜色 -->
+    <color name="background">#121620</color>
+    <color name="surface">#1A1F30</color>
+    <color name="input_background">#2B334F</color>
+    
+    <!-- 夜间模式的文本颜色 -->
+    <color name="text_primary">#E8EFFF</color>
+    <color name="text_secondary">#B0BBD5</color>
+    <color name="text_hint">#8990A7</color>
+    
+    <!-- 夜间模式的辅助颜色 -->
+    <color name="divider">#3A4366</color>
+    <color name="ripple">#40738EFF</color>
+</resources> 

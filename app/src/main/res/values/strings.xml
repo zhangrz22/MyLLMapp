@@ -29,4 +29,9 @@
     <string name="search_settings">搜索设置</string>
     <string name="enable_network_search">启用联网搜索</string>
     <string name="network_search_description">开启后，AI将能够搜索网络获取最新信息</string>
+    
+    <!-- 夜间模式 -->
+    <string name="toggle_night_mode">切换夜间模式</string>
+    <string name="night_mode_on">夜间模式已开启</string>
+    <string name="night_mode_off">夜间模式已关闭</string>
 </resources>

@@ -1,14 +1,18 @@
 package com.example.myllmapp;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast; // 新增导入
+import android.widget.ImageButton;
+import android.content.res.Configuration;
 
 import androidx.appcompat.app.AlertDialog; // 新增导入
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.TooltipCompat;
 import androidx.lifecycle.ViewModelProvider; // Consider using ViewModel later
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -38,6 +42,10 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
     private ConversationDao conversationDao;
     private MessageDao messageDao;
     private ChatHistoryAdapter adapter;
+    private ImageButton btnToggleNightMode;
+
+    private static final String PREF_NIGHT_MODE = "night_mode_pref";
+    private static final String PREF_NIGHT_MODE_VALUE = "night_mode_value";
 
     private final ExecutorService databaseExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainThreadHandler = new Handler(Looper.getMainLooper());
@@ -59,6 +67,7 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
 
         setupRecyclerView();
         observeConversations();
+        setupNightModeToggle();
 
         binding.fabNewChat.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, ChatActivity.class);
@@ -67,6 +76,61 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
         });
 
         TooltipCompat.setTooltipText(binding.fabNewChat, getString(R.string.new_chat_tooltip));
+    }
+
+    /**
+     * 设置夜间模式切换按钮
+     */
+    private void setupNightModeToggle() {
+        btnToggleNightMode = binding.toolbar.findViewById(R.id.btnToggleNightMode);
+        
+        // 根据当前模式设置合适的图标
+        updateNightModeButtonIcon();
+        
+        // 设置按钮点击事件
+        btnToggleNightMode.setOnClickListener(v -> {
+            // 获取当前主题模式
+            int currentNightMode = getResources().getConfiguration().uiMode 
+                    & Configuration.UI_MODE_NIGHT_MASK;
+            
+            if (currentNightMode == Configuration.UI_MODE_NIGHT_YES) {
+                // 当前是夜间模式，切换到日间模式
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+                Toast.makeText(this, R.string.night_mode_off, Toast.LENGTH_SHORT).show();
+                saveNightModePreference(AppCompatDelegate.MODE_NIGHT_NO);
+            } else {
+                // 当前是日间模式，切换到夜间模式
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+                Toast.makeText(this, R.string.night_mode_on, Toast.LENGTH_SHORT).show();
+                saveNightModePreference(AppCompatDelegate.MODE_NIGHT_YES);
+            }
+        });
+    }
+    
+    /**
+     * 保存夜间模式设置到SharedPreferences
+     */
+    private void saveNightModePreference(int nightMode) {
+        SharedPreferences preferences = getSharedPreferences(PREF_NIGHT_MODE, MODE_PRIVATE);
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putInt(PREF_NIGHT_MODE_VALUE, nightMode);
+        editor.apply();
+    }
+    
+    /**
+     * 根据当前主题模式更新切换按钮图标
+     */
+    private void updateNightModeButtonIcon() {
+        int currentNightMode = getResources().getConfiguration().uiMode 
+                & Configuration.UI_MODE_NIGHT_MASK;
+        
+        if (currentNightMode == Configuration.UI_MODE_NIGHT_YES) {
+            // 当前是夜间模式，显示太阳图标
+            btnToggleNightMode.setImageResource(R.drawable.ic_sun);
+        } else {
+            // 当前是日间模式，显示月亮图标
+            btnToggleNightMode.setImageResource(R.drawable.ic_moon);
+        }
     }
 
     /**
@@ -117,6 +181,12 @@ public class MainActivity extends AppCompatActivity implements ChatHistoryAdapte
         });
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 检查并更新夜间模式按钮图标
+        updateNightModeButtonIcon();
+    }
 
     /**
      * Callback method from ChatHistoryAdapter.OnConversationInteractionListener.
