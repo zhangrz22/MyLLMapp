@@ -30,9 +30,27 @@ public class SettingsActivity extends AppCompatActivity {
     
     // 定义支持的模型
     private static final Map<String, String> SUPPORTED_MODELS = new HashMap<>();
+    // 需要强制流式输出的模型ID集合
+    public static final java.util.Set<String> FORCE_STREAMING_MODELS = new java.util.HashSet<>();
     static {
+        SUPPORTED_MODELS.put("通义千问3", "qwen-plus-latest");
+        SUPPORTED_MODELS.put("通义千问3-Turbo", "qwen-turbo-latest");
+        SUPPORTED_MODELS.put("通义千问3-235B-A22B", "qwen3-235b-a22b");
+        SUPPORTED_MODELS.put("通义千问3-30B-A3B", "qwen3-30b-a3b");
+        SUPPORTED_MODELS.put("通义千问3-32B", "qwen3-32b");
+        SUPPORTED_MODELS.put("DeepSeek-R1", "deepseek-r1");
+        // 保留原有模型（如有）
         SUPPORTED_MODELS.put("通义千问-plus", "qwen-plus");
         SUPPORTED_MODELS.put("deepseek-v3", "deepseek-v3");
+
+        // 需要强制流式输出的模型ID
+        FORCE_STREAMING_MODELS.add("qwen-plus-latest");
+        FORCE_STREAMING_MODELS.add("qwen-turbo-latest");
+        FORCE_STREAMING_MODELS.add("qwen3-235b-a22b");
+        FORCE_STREAMING_MODELS.add("qwen3-30b-a3b");
+        FORCE_STREAMING_MODELS.add("qwen3-32b");
+        FORCE_STREAMING_MODELS.add("deepseek-r1");
+        // 你可以根据需要添加更多模型ID
     }
     
     private ActivitySettingsBinding binding;
@@ -70,17 +88,39 @@ public class SettingsActivity extends AppCompatActivity {
         // 获取流式输出开关
         SwitchCompat switchStreaming = binding.switchStreaming;
         
+        // 获取当前模型ID
+        String currentModelId = sharedPreferences.getString(PREF_MODEL, "qwen-plus-latest");
         // 设置开关状态为当前配置
         boolean useStreaming = sharedPreferences.getBoolean(PREF_USE_STREAMING, true);
-        switchStreaming.setChecked(useStreaming);
+        // 如果当前模型需要强制流式输出，则强制开关为true且禁用
+        if (FORCE_STREAMING_MODELS.contains(currentModelId)) {
+            switchStreaming.setChecked(true);
+            switchStreaming.setEnabled(false);
+            // 强制保存为true
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putBoolean(PREF_USE_STREAMING, true);
+            editor.apply();
+        } else {
+            switchStreaming.setChecked(useStreaming);
+            switchStreaming.setEnabled(true);
+        }
         
         // 设置开关变化监听器
         switchStreaming.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            // 如果当前模型需要强制流式输出，则不允许用户更改
+            String modelNow = sharedPreferences.getString(PREF_MODEL, "qwen-plus-latest");
+            if (FORCE_STREAMING_MODELS.contains(modelNow)) {
+                buttonView.setChecked(true);
+                switchStreaming.setEnabled(false);
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putBoolean(PREF_USE_STREAMING, true);
+                editor.apply();
+                return;
+            }
             // 保存新设置
             SharedPreferences.Editor editor = sharedPreferences.edit();
             editor.putBoolean(PREF_USE_STREAMING, isChecked);
             editor.apply();
-            
             // 显示保存成功提示
             Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show();
         });
@@ -90,26 +130,27 @@ public class SettingsActivity extends AppCompatActivity {
         
         // 设置开关状态为当前配置
         boolean enableSearch = sharedPreferences.getBoolean(PREF_ENABLE_SEARCH, false);
-        switchNetworkSearch.setChecked(enableSearch);
-
-        // 根据当前模型初始化enable_search开关的可用性
-        String currentModel = sharedPreferences.getString(PREF_MODEL, "qwen-plus");
-        if ("deepseek-v3".equals(currentModel)) {
+        // 推理模型不允许联网搜索
+        if (FORCE_STREAMING_MODELS.contains(currentModelId)) {
             switchNetworkSearch.setChecked(false);
             switchNetworkSearch.setEnabled(false);
             SharedPreferences.Editor editor = sharedPreferences.edit();
             editor.putBoolean(PREF_ENABLE_SEARCH, false);
             editor.apply();
         } else {
+            switchNetworkSearch.setChecked(enableSearch);
             switchNetworkSearch.setEnabled(true);
         }
         
         // 设置开关变化监听器
         switchNetworkSearch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            String modelNow = sharedPreferences.getString(PREF_MODEL, "qwen-plus");
-            if ("deepseek-v3".equals(modelNow)) {
+            String modelNow = sharedPreferences.getString(PREF_MODEL, "qwen-plus-latest");
+            if (FORCE_STREAMING_MODELS.contains(modelNow) || "deepseek-v3".equals(modelNow)) {
                 buttonView.setChecked(false);
                 switchNetworkSearch.setEnabled(false);
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putBoolean(PREF_ENABLE_SEARCH, false);
+                editor.apply();
                 return;
             }
             SharedPreferences.Editor editor = sharedPreferences.edit();
@@ -161,8 +202,8 @@ public class SettingsActivity extends AppCompatActivity {
                 SharedPreferences.Editor editor = sharedPreferences.edit();
                 editor.putString(PREF_MODEL, selectedModelId);
                 editor.apply();
-                // 联动enable_search开关
-                if ("deepseek-v3".equals(selectedModelId)) {
+                // 联动enable_search开关：推理模型和deepseek-v3都不允许联网搜索
+                if (FORCE_STREAMING_MODELS.contains(selectedModelId) || "deepseek-v3".equals(selectedModelId)) {
                     binding.switchNetworkSearch.setChecked(false);
                     binding.switchNetworkSearch.setEnabled(false);
                     SharedPreferences.Editor e2 = sharedPreferences.edit();
@@ -175,6 +216,18 @@ public class SettingsActivity extends AppCompatActivity {
                     binding.switchNetworkSearch.setEnabled(true);
                     boolean enableSearch = sharedPreferences.getBoolean(PREF_ENABLE_SEARCH, false);
                     binding.switchNetworkSearch.setChecked(enableSearch);
+                }
+                // 联动流式输出开关
+                if (FORCE_STREAMING_MODELS.contains(selectedModelId)) {
+                    binding.switchStreaming.setChecked(true);
+                    binding.switchStreaming.setEnabled(false);
+                    SharedPreferences.Editor e3 = sharedPreferences.edit();
+                    e3.putBoolean(PREF_USE_STREAMING, true);
+                    e3.apply();
+                } else {
+                    boolean useStreaming = sharedPreferences.getBoolean(PREF_USE_STREAMING, true);
+                    binding.switchStreaming.setChecked(useStreaming);
+                    binding.switchStreaming.setEnabled(true);
                 }
                 updateCurrentConversationModel(selectedModelId);
                 Toast.makeText(SettingsActivity.this, R.string.settings_saved, Toast.LENGTH_SHORT).show();

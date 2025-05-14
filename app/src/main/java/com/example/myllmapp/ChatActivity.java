@@ -61,6 +61,9 @@ public class ChatActivity extends AppCompatActivity {
 
     private AtomicLong currentConversationId = new AtomicLong(-1L); // Use AtomicLong for thread safety / 使用 AtomicLong 保证线程安全, -1 indicates new conversation / -1 表示新对话
 
+    // 控制自动滚动的标志
+    private volatile boolean shouldAutoScroll = true;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -175,6 +178,17 @@ public class ChatActivity extends AppCompatActivity {
         binding.recyclerViewMessages.setAdapter(adapter);
         binding.recyclerViewMessages.setLayoutManager(layoutManager);
 
+        // 监听用户手动滚动，用户一旦滑动就关闭自动滚动
+        binding.recyclerViewMessages.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+                if (newState == RecyclerView.SCROLL_STATE_DRAGGING) {
+                    shouldAutoScroll = false;
+                }
+            }
+        });
+
         // Scroll to bottom when new items are added / 当新项目添加时滚动到底部
         adapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
             @Override
@@ -213,6 +227,8 @@ public class ChatActivity extends AppCompatActivity {
      * 处理发送用户消息。
      */
     private void sendMessage() {
+        // 每次用户发消息时，恢复自动滚动
+        shouldAutoScroll = true;
         String messageText = binding.editTextMessageInput.getText().toString().trim();
         if (TextUtils.isEmpty(messageText)) {
             return; // Don't send empty messages / 不发送空消息
@@ -310,6 +326,8 @@ public class ChatActivity extends AppCompatActivity {
                 if ("deepseek-v3".equals(modelToUse)) {
                     enableSearch = false;
                 }
+                // 新增：推理模型自动加 enable_thinking
+                boolean enableThinking = SettingsActivity.FORCE_STREAMING_MODELS.contains(modelToUse);
                 
                 // 4. 转换消息格式
                 List<com.alibaba.dashscope.common.Message> dashScopeMessages = DashScopeClient.convertToDashScopeMessages(historyMessages, enableSearch);
@@ -318,7 +336,7 @@ public class ChatActivity extends AppCompatActivity {
                 boolean useStreaming = SettingsActivity.useStreaming(this);
                 
                 // 打印请求内容到logcat
-                Log.i(TAG, "LLM API Request: model=" + modelToUse + ", enableSearch=" + enableSearch + ", useStreaming=" + useStreaming);
+                Log.i(TAG, "LLM API Request: model=" + modelToUse + ", enableSearch=" + enableSearch + ", enableThinking=" + enableThinking + ", useStreaming=" + useStreaming);
                 for (com.alibaba.dashscope.common.Message msg : dashScopeMessages) {
                     Log.i(TAG, "Message: role=" + msg.getRole() + ", content=" + msg.getContent());
                 }
@@ -402,7 +420,6 @@ public class ChatActivity extends AppCompatActivity {
                                        List<com.alibaba.dashscope.common.Message> dashScopeMessages,
                                        boolean enableSearch, long conversationId) 
             throws NoApiKeyException, ApiException, InputRequiredException {
-        
         // 创建初始的空LLM消息用于流式输出
         final Message initialStreamingMessage = new Message(
                 conversationId,
@@ -410,50 +427,61 @@ public class ChatActivity extends AppCompatActivity {
                 System.currentTimeMillis(),
                 true
         );
-        
         // 在UI线程上添加初始流式消息
         runOnUiThread(() -> {
             adapter.addOrUpdateStreamingMessage(initialStreamingMessage);
             scrollToBottom();
         });
-        
-        StringBuilder fullResponseBuilder = new StringBuilder();
-        
+        StringBuilder reasoningContent = new StringBuilder();
+        StringBuilder finalContent = new StringBuilder();
+        final java.util.concurrent.atomic.AtomicBoolean isFirstPrint = new java.util.concurrent.atomic.AtomicBoolean(true);
+        boolean enableThinking = SettingsActivity.FORCE_STREAMING_MODELS.contains(modelToUse);
         try {
             // 执行流式API调用
             Flowable<GenerationResult> resultFlowable = DashScopeClient.streamCallWithMessages(
                     modelToUse, apiKey, dashScopeMessages, enableSearch, 
                     generationResult -> {
                         try {
-                            // 获取增量响应
-                            String incrementalContent = generationResult.getOutput().getChoices().get(0).getMessage().getContent();
-                            fullResponseBuilder.append(incrementalContent);
-                            
-                            // 更新UI上的流式消息
-                            String currentFullText = fullResponseBuilder.toString();
-                            runOnUiThread(() -> {
-                                adapter.updateStreamingMessageText(currentFullText);
-                                
-                                // 延迟执行滚动，避免频繁滚动引起的性能问题
-                                if (fullResponseBuilder.length() % 50 == 0) {  // 每累积约50个字符滚动一次
-                                    scrollToBottom();
-                                }
-                            });
-                            
-                            Log.d(TAG, "Stream increment: " + incrementalContent);
+                            String reasoning = "";
+                            String content = "";
+                            // 兼容 dashscope SDK >=2.19.4
+                            if (generationResult.getOutput() != null &&
+                                generationResult.getOutput().getChoices() != null &&
+                                !generationResult.getOutput().getChoices().isEmpty()) {
+                                reasoning = generationResult.getOutput().getChoices().get(0).getMessage().getReasoningContent();
+                                content = generationResult.getOutput().getChoices().get(0).getMessage().getContent();
+                            }
+                            if (enableThinking && reasoning != null && !reasoning.isEmpty()) {
+                                reasoningContent.append(reasoning);
+                            }
+                            if (content != null && !content.isEmpty()) {
+                                finalContent.append(content);
+                            }
+                            // 拼接完整显示内容
+                            StringBuilder display = new StringBuilder();
+                            if (reasoningContent.length() > 0) {
+                                display.append("====思考过程====\n").append(reasoningContent);
+                            }
+                            if (finalContent.length() > 0) {
+                                display.append("\n====完整回复====\n").append(finalContent);
+                            }
+                            runOnUiThread(() -> adapter.updateStreamingMessageText(display.toString()));
+                            // 延迟执行滚动，避免频繁滚动引起的性能问题
+                            if ((reasoningContent.length() + finalContent.length()) % 50 == 0) {
+                                runOnUiThread(this::scrollToBottom);
+                            }
+                            Log.d(TAG, "Stream increment: reasoning=" + reasoning + ", content=" + content);
                         } catch (Exception e) {
                             Log.e(TAG, "Error processing stream increment", e);
                         }
                     });
-            
             // 等待流完成
             resultFlowable.blockingSubscribe();
-            
             // 流式输出完成后，将完整响应保存到数据库
             AppDatabase.databaseWriteExecutor.execute(() -> {
                 isLoadingResponse = false;
                 try {
-                    String finalResponse = fullResponseBuilder.toString();
+                    String finalResponse = finalContent.toString();
                     // 创建最终消息
                     Message finalMessage = new Message(
                             conversationId,
@@ -461,28 +489,22 @@ public class ChatActivity extends AppCompatActivity {
                             Sender.LLM,
                             System.currentTimeMillis()
                     );
-                    
                     // 更新UI并完成流式消息
                     runOnUiThread(() -> {
                         adapter.finishStreamingMessage(finalMessage);
-                        
                         // 最后一次滚动，确保显示完整内容
                         scrollToBottom();
                     });
-                    
                     // 保存到数据库
                     messageDao.insertMessage(finalMessage);
                     Log.d(TAG, "Inserted streamed LLM response using model: " + modelToUse);
-                    
                 } catch (Exception e) {
                     handleApiError("处理流式响应失败: " + e.getMessage());
                 }
             });
-            
         } catch (Exception e) {
             isLoadingResponse = false;
             handleApiError("流式API调用失败: " + e.getMessage());
-            
             // 尝试移除流式消息
             runOnUiThread(() -> {
                 Message errorMessage = new Message(
@@ -524,6 +546,7 @@ public class ChatActivity extends AppCompatActivity {
      * 将 RecyclerView 滚动到最后一项。
      */
     private void scrollToBottom() {
+        if (!shouldAutoScroll) return;
         if (adapter != null && adapter.getItemCount() > 0) {
             // Use post to ensure scroll happens after layout calculation
             // 使用 post 确保滚动在布局计算之后发生
